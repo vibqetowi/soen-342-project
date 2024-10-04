@@ -1,13 +1,12 @@
 # soen-342-project
 
-## Team HO members:
+## Team Gymmy members:
 
-Huynh Minh
-
-Ossama
+- Huynh Minh, 40210039
+- Elbannaoui Ossama, 40157112
 
 ## Descriptionq
 
-HO MMA offers different martial arts lessons in different locations
+Gymmmy offers it's users a flexible and practical to book fitness classes.
 
 ### UML Case Diagram
