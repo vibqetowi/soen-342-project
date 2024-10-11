@@ -1,0 +1,74 @@
+@startuml
+
+class Province {
+    +province_id : Integer
+}
+
+class City {
+    +city_id : Integer
+}
+
+class Location {
+    +location_id : Integer
+}
+
+class Schedule {
+    +schedule_id : Integer
+}
+
+class TimeSlot {
+    +time_slot_id : Integer
+    +start_time : DateTime
+    +end_time : DateTime
+}
+
+class Instructor {
+    +instructor_id : Integer
+    +name : String
+    +phone : String
+    +specialization : String
+    +is_active : Boolean
+}
+
+class Offering {
+    +offering_id : Integer
+    +lesson_type : String
+    +mode : String
+}
+
+class PublicOffering {
+    +public_offering_id : Integer
+    +booking_status : String <<enum>>
+    +max_clients: Integer
+}
+
+class Client {
+    +client_id : Integer
+    +age:int
+}
+
+class Guardian{
+    +guardian_id : Integer
+    +age : Integer
+}
+
+class Administrator {
+    +admin_id : Integer
+}
+
+' Relationships
+Province "1" -- "0..*" City : contains
+City "1" -- "0..*" Location : contains
+Instructor "1" -- "0..*" City : is available in
+Location "1" -- "0..1" Schedule : has
+Schedule "1" -- "0..*" TimeSlot : has
+PublicOffering "1" -- "0..*" TimeSlot : reserves
+Instructor "1" -- "0..*" Offering : accepts
+Instructor "1" -- "0..*" PublicOffering : creates
+Offering "1" -- "0..*" PublicOffering : derived from
+Client "1" -- "0..*" PublicOffering : registers
+PublicOffering "1" -- "0..1" Schedule : shown in
+Guardian "0..1" -- "1" Client : is responsible for
+Administrator "1" -- "0..*" Offering : manages
+
+@enduml

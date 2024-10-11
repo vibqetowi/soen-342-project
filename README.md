@@ -5,8 +5,9 @@
 - Huynh Minh, 40210039
 - Elbannaoui Ossama, 40157112
 
-## Descriptionq
+## Description
 
 Gymmmy offers it's users a flexible and practical to book fitness classes.
 
-### UML Case Diagram
+## UML Diagrams:
+The UML Diagrams are written in PlantUML, both code and generated images are present in UML-Diagrams folder
