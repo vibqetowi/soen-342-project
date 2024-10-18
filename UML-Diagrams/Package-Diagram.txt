@@ -1,0 +1,84 @@
+@startuml
+
+package "Geography" {
+    class Province {
+        +province_id : Integer
+    }
+
+    class City {
+        +city_id : Integer
+    }
+
+    class Location {
+        +location_id : Integer
+    }
+}
+
+package "Scheduling" {
+    class Schedule {
+        +schedule_id : Integer
+    }
+
+    class TimeSlot {
+        +time_slot_id : Integer
+        +start_time : DateTime
+        +end_time : DateTime
+    }
+}
+
+package "Personnel" {
+    class Instructor {
+        +instructor_id : Integer
+        +name : String
+        +phone : String
+        +specialization : String
+        +is_active : Boolean
+    }
+
+    class Administrator {
+        +admin_id : Integer
+    }
+}
+
+package "Offerings" {
+    class Offering {
+        +offering_id : Integer
+        +lesson_type : String
+        +mode : String
+    }
+
+    class PublicOffering {
+        +public_offering_id : Integer
+        +booking_status : String <<enum>>
+        +max_clients: Integer
+    }
+}
+
+package "Users" {
+    class Client {
+        +client_id : Integer
+        +age: Integer
+    }
+
+    class Guardian {
+        +guardian_id : Integer
+        +age : Integer
+    }
+}
+
+' Relationships between packages
+Geography::Province "1" -- "0..*" Geography::City : contains
+Geography::City "1" -- "0..*" Geography::Location : contains
+Personnel::Instructor "1" -- "0..*" Geography::City : is available in
+Geography::Location "1" -- "0..1" Scheduling::Schedule : has
+Scheduling::Schedule "1" -- "0..*" Scheduling::TimeSlot : has
+Offerings::PublicOffering "1" -- "0..*" Scheduling::TimeSlot : reserves
+Personnel::Instructor "1" -- "0..*" Offerings::Offering : accepts
+Personnel::Instructor "1" -- "0..*" Offerings::PublicOffering : creates
+Offerings::Offering "1" -- "0..*" Offerings::PublicOffering : derived from
+Users::Client "1" -- "0..*" Offerings::PublicOffering : registers
+Offerings::PublicOffering "1" -- "0..1" Scheduling::Schedule : shown in
+Users::Guardian "0..1" -- "1" Users::Client : is responsible for
+Personnel::Administrator "1" -- "0..*" Offerings::Offering : manages
+
+@enduml
