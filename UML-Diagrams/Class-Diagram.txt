@@ -22,6 +22,10 @@ class TimeSlot {
     +end_time : DateTime
 }
 
+class TimeSlotCatalogue {
+    +catalogue_id : Integer
+}
+
 class Instructor {
     +instructor_id : Integer
     +name : String
@@ -56,19 +60,28 @@ class Administrator {
     +admin_id : Integer
 }
 
+' Aggregations
+Province o-- City : aggregate
+City o-- Location : aggregate
+Schedule o-- PublicOffering : aggregate
+TimeSlotCatalogue o-- TimeSlot : aggregate
+
 ' Relationships
-Province "1" -- "0..*" City : contains
-City "1" -- "0..*" Location : contains
 Instructor "1" -- "0..*" City : is available in
 Location "1" -- "0..1" Schedule : has
-Schedule "1" -- "0..*" TimeSlot : has
 PublicOffering "1" -- "0..*" TimeSlot : reserves
 Instructor "1" -- "0..*" Offering : accepts
 Instructor "1" -- "0..*" PublicOffering : creates
 Offering "1" -- "0..*" PublicOffering : derived from
 Client "1" -- "0..*" PublicOffering : registers
-PublicOffering "1" -- "0..1" Schedule : shown in
 Guardian "0..1" -- "1" Client : is responsible for
 Administrator "1" -- "0..*" Offering : manages
+Administrator "1" -- "0..*" Instructor : manages
+Administrator "1" -- "0..*" Client : manages
+Administrator "1" -- "0..*" Guardian : manages
+
+' Connections to TimeSlotCatalogue
+Schedule "1" -- "1" TimeSlotCatalogue : linked to
+PublicOffering "1" -- "1" TimeSlotCatalogue : linked to
 
 @enduml

@@ -1,0 +1,46 @@
+@startuml
+actor Admin
+participant System
+participant "O:Offering"
+collections Offerings
+
+Admin -> System : 1. createOffering(offering_id : Integer, lesson_type : String, mode : String)
+System -> "O:Offering" ** : 2. create(offering_id, lesson_type, mode)
+"O:Offering" --> System : 3. Confirm
+System -> Offerings : 4. add(O)
+Offerings --> System : 5. Confirm 
+System --> Admin : 6. Confirm
+
+@enduml
+
+@startuml
+actor Admin
+participant System
+collections Instructors
+participant "I:Instructor"
+
+Admin -> System : 1. deleteInstructor(id : Integer)
+System -> Instructors : 2. find(id)
+Instructors --> System : 3. return I: Instructor
+System -> Instructors : 4. confirmDelete(I)
+Instructors -> "I:Instructor" !! : 5. delete
+Instructors --> System : 6. Confirm
+System --> Admin : 7. Confirm
+
+@enduml
+
+@startuml
+actor Admin
+participant System
+collections Clients
+participant "C:Client"
+
+Admin -> System : 1. deleteClient(id : Integer)
+System -> Clients : 2. find(id)
+Clients --> System : 3. return C: Client
+System -> Clients : 4. confirmDelete(C)
+Clients -> "C:Client" !! : 5. delete
+Clients --> System : 6. Confirm
+System --> Admin : 7. Confirm
+
+@enduml
