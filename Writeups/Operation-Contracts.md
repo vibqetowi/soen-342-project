@@ -88,7 +88,7 @@
 **Postconditions:**
 
 - New client is added to Clients.
-- Clients under 18 are all associated with a guardian client.
+- Clients under 18 are all associated with a guardian client that is at least 18.
 - User is confirmed as registered.
 
 **Output:**

@@ -36,7 +36,6 @@ package "Users" {
         +name : String
         +phone : String
         +specialization : String
-        +is_active : Boolean
         +email : String
         +password : String
     }

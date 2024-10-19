@@ -1,0 +1,158 @@
+@startuml
+actor Instructor
+participant System
+participant "I:Instructor"
+collections Instructors
+
+autonumber
+
+Instructor -> System : registerInstructor(name : String, phone : String, specialization : String, email : String, password : String, cities_available: List[City])
+System -> System : hash(password)
+
+System -> "I:Instructor" ** : create(instructor_id: Integer, name, phone, specialization, email, hashed_password, cities_available)
+"I:Instructor" --> System : Confirm
+System -> Instructors : add(I)
+Instructors --> System : Confirm
+
+System --> Instructor : Confirm
+
+@enduml
+
+'__________________________________________
+
+@startuml
+actor Instructor
+participant System
+participant "I:Instructor"
+collections Instructors
+
+autonumber
+
+Instructor -> System : login(email : String, password : String)
+System -> Instructors : find(email)
+Instructors --> System : return I:Instructor
+
+System -> "I:Instructor" : getHashedPassword()
+"I:Instructor" --> System : return stored_hashed_password
+System -> System : hash(password)
+
+alt#LightBlue #LightBlue (stored_hashed_password == hashed_password)
+    System --> Instructor : Confirm login
+else #LightCoral
+    System --> Instructor : Error (invalid credentials)
+end
+@enduml
+
+'__________________________________________
+
+@startuml
+actor Instructor
+participant System
+collections Offerings
+collections SuitableO
+participant "O:Offering"
+collections Instructors
+participant "I:Instructor"
+participant "I.Schedule:Schedule"
+collections PublicOfferings
+participant "PO:PublicOffering"
+note over of "I.Schedule:Schedule": nowhere does it say the number of instructors teaching a certain class must be 1 and only 1
+
+autonumber
+
+Instructor -> System : acceptOffering(specialization, cities)
+System -> Offerings : find(specialization, cities)
+Offerings --> System : return SuitableO
+
+alt#LightBlue #LightBlue (SuitableO not NULL)
+    loop#LightGreen #LightGreen do while Instructor selects to continue (executes at least once)
+        System --> Instructor : prompt to select Offering
+        Instructor -> System : select(offering_id)
+        System -> SuitableO : find(offering_id)
+        SuitableO --> System : return O:Offering
+        System -> "O:Offering" : getTimeslots()
+        "O:Offering" --> System : return O.Timeslots
+        System -> "Instructors" : find(instructor_id)
+        Instructors --> System : return("I:Instructor")
+        System -> "I:Instructor" : getSchedule()
+        "I:Instructor" --> System : return I.Schedule
+        System -> "I.Schedule:Schedule" : getTimeSlots()
+        "I.Schedule:Schedule" --> System : return I.Schedule.Timeslots
+
+        System -> System : checkOverlap(O.TimeSlots, I.Schedule.Timeslots)
+
+        alt#LightCoral #LightCoral (overlap between O.TimeSlots and I.Schedule.Timeslots)
+            System --> Instructor : error "schedule conflict"
+        else #LightCoral Failure
+            System -> PublicOfferings : makePublicOffering(instructor_id, O)
+            PublicOfferings --> "PO:PublicOffering" : create(instructor_id, O)
+            "PO:PublicOffering" --> PublicOfferings : Confirm
+            PublicOfferings --> System : return PO
+            System -> "I:Instructor" : addPublicOffering(PO)
+            "I:Instructor" -> "I.Schedule:Schedule" : add(PO)
+            "I.Schedule:Schedule" --> "I:Instructor" : Confirm
+            "I:Instructor" --> System : Confirm
+            System --> Instructor : Confirm
+        end
+        System --> Instructor: Prompt to continue or exit
+    end
+else #LightBlue Failure
+    System --> Instructor : error "no suitable offering found"
+end
+
+@enduml
+'__________________________________________
+
+@startuml
+actor Instructor
+participant System
+collections PublicOfferings
+participant "PO:PublicOffering"
+collections Instructors
+participant "I:Instructor"
+collections Clients
+participant "C:Client"
+
+
+autonumber
+
+Instructor -> System : cancelBooking(offering_id)
+System -> PublicOfferings : find(offering_id)
+PublicOfferings --> System : return PO:PublicOffering
+
+
+System -> "PO:PublicOffering" : getInstructorAndClientLists()
+"PO:PublicOffering" --> System : return PO.instructorList, PO.clientList
+System -> "PO:PublicOffering" : PO.instructorList.remove(self.instructor_id)
+"PO:PublicOffering" --> System : Confirm
+System -> System: Read PO.instructorList
+
+alt#LightBlue #LightBlue (Instructor list not empty/Course will still happen)
+    loop#LightGreen #LightGreen Notify each instructor
+        System -> Instructors : find(instructor_id)
+        Instructors --> System : return I:Instructor
+        System -> "I:Instructor" : notify()
+        "I:Instructor" --> System : Confirm
+    end
+    loop#LightGreen #LightGreen Notify each client
+        System -> Clients : find(client_id)
+        Clients --> System : return C:Client
+        System -> "C:Client" : notify()
+        "C:Client" --> System : Confirm
+    end
+else #LightCoral #LightCoral (No instructors left/Course is cancelled)
+    loop#LightPink #LightPink Notify each client
+        System -> Clients : find(client_id)
+        Clients --> System : return C:Client
+        System -> "C:Client" : notify()
+        "C:Client" --> System : Confirm
+    end
+    System -> PublicOfferings : revertToNormalOffering(offering_id)
+    PublicOfferings -> "PO:PublicOffering" !!: delete
+    PublicOfferings --> System : Confirm
+end
+
+
+System --> Instructor : Confirm 
+
+@enduml

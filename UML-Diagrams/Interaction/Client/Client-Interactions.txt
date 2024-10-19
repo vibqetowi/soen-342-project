@@ -1,0 +1,161 @@
+@startuml
+actor User
+participant System
+participant "C:Client"
+collections Clients
+
+autonumber
+
+User -> System : registerClient(email : String, password : String, age : Integer)
+System -> System : hash(password)
+
+alt (age < 18)
+    System -> User : request guardian_id
+    User -> System : input(guardian_id)
+    System -> Clients : find(guardian_id)
+    Clients --> System : return G: Guardian
+    System -> "C:Client" ** : create(client_id: Integer, email, hashed_password, age, G)
+    "C:Client" --> System : Confirm
+    System -> Clients : add(C)
+    Clients --> System : Confirm
+else (age >= 18)
+    System -> "C:Client" ** : create(client_id: Integer, email, hashed_password, age)
+    "C:Client" --> System : Confirm
+    System -> Clients : add(C)
+    Clients --> System : Confirm
+end
+
+System --> User : Confirm
+
+@enduml
+
+'__________________________________________
+
+@startuml
+actor User
+participant System
+participant "C:Client"
+collections Clients
+
+autonumber
+
+User -> System : login(email : String, password : String)
+System -> Clients : find(email)
+Clients --> System : return C:Client
+
+System -> "C:Client" : getHashedPassword()
+"C:Client" --> System : return stored_hashed_password
+System -> System : hash(password)
+
+alt#LightBlue #LightBlue (stored_hashed_password == hashed_password)
+    System --> User : Confirm login
+else #LightCoral
+    System --> User : Error (invalid credentials)
+end
+@enduml
+
+'__________________________________________
+
+@startuml
+actor Client
+participant System
+collections PublicOfferings
+note over of PublicOfferings : SuitablePO is a filtered subset of PublicOfferings
+collections SuitablePO
+participant "PO:PublicOffering"
+collections Clients
+participant "C:Client"
+participant "C.Schedule:Schedule"
+
+autonumber
+
+Client -> System : makeBooking(search_query)
+System -> PublicOfferings : find(search_query)
+PublicOfferings --> System : return SuitablePO
+
+alt#LightBlue #LightBlue (SuitablePO not NULL)
+    loop#LightGreen #LightGreen do while Client selects to continue (executes at least once) 
+        System --> Client : prompt to select Offering
+        Client -> System : select(offering_id)
+        System -> SuitablePO : find(offering_id)
+        SuitablePO --> System : return PO:PublicOffering
+        System -> "PO:PublicOffering" : getCapacity()
+        "PO:PublicOffering" --> System : return capacity
+        
+        alt#LightYellow #LightYellow (capacity > 0)
+            System -> "PO:PublicOffering" : getTimeslots()
+            "PO:PublicOffering" --> System : return PO.Timeslots
+            System -> Clients : find(client_id)
+            Clients --> System : return "C:Client"
+            System -> "C:Client" : getSchedule()
+            "C:Client" --> System : return "C.Schedule"
+            System -> "C.Schedule:Schedule" : getTimeSlots()
+            "C.Schedule:Schedule" --> System : return "C.Schedule.Timeslots"
+            "C.Schedule:Schedule" --> "C:Client" : return "C.Schedule.Timeslots"
+            "C:Client" --> System : return "C.Schedule.Timeslots"
+
+            System -> System : checkOverlap(PO.TimeSlots, C.Schedule.Timeslots)
+
+            alt#LightCoral #LightCoral (overlap between PO.TimeSlots and C.Schedule.Timeslots)
+                System --> Client : error "schedule conflict"
+            else #LightCoral Failure
+                System --> Client : error "schedule conflict"
+            end
+        else #LightYellow Failure
+            System --> Client : error "all offerings full"
+        end
+        System --> Client: Prompt to continue or exit
+    end
+else #LightBlue Failure
+    System --> Client : error "no offering found"
+end
+
+@enduml
+
+'__________________________________________
+
+@startuml
+actor Client
+participant System
+collections PublicOfferings
+participant "PO:PublicOffering"
+collections Clients
+participant "C:Client"
+participant "C.Schedule:Schedule"
+collections Instructors
+participant "I:Instructor"
+
+autonumber
+
+Client -> System : cancelBooking(offering_id)
+
+System -> PublicOfferings : find(offering_id)
+PublicOfferings --> System : return PO:PublicOffering
+
+System -> "PO:PublicOffering" : getClientAndInstructorLists()
+"PO:PublicOffering" --> System : return PO.clientList, PO.instructorList
+
+System -> "PO:PublicOffering" : PO.clientList.remove(self.client_id)
+"PO:PublicOffering" --> System : Confirm removal
+
+    loop#LightGreen #LightGreen Notify instructor
+        System -> Instructors : find(instructor_id)
+        Instructors --> System : return I:Instructor
+        System -> "I:Instructor" : notifyCancellation()
+        "I:Instructor" --> System : Confirm
+    end
+
+
+System -> "PO:PublicOffering" : adjustCapacity()
+"PO:PublicOffering" --> System : Confirm
+
+System -> "C:Client" : find(client_id)
+"C:Client" --> System : return C:Client
+System -> "C:Client" : getSchedule()
+"C:Client" --> System : return C.Schedule
+System -> "C.Schedule:Schedule" : remove(PO)
+"C.Schedule:Schedule" --> System : Confirm removal
+
+System --> Client : Confirm 
+
+@enduml
