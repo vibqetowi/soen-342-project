@@ -1,15 +1,16 @@
 @startuml
 actor Admin
 participant System
-participant "O:Offering"
+participant "O:Offering" 
 collections Offerings
+autonumber
 
-Admin -> System : 1. createOffering(offering_id : Integer, lesson_type : String, mode : String)
-System -> "O:Offering" ** : 2. create(offering_id, lesson_type, mode)
-"O:Offering" --> System : 3. Confirm
-System -> Offerings : 4. add(O)
-Offerings --> System : 5. Confirm 
-System --> Admin : 6. Confirm
+Admin -> System : createOffering(offering_id : Integer, lesson_type : String, mode : String)
+System -> "O:Offering" ** : create(offering_id, lesson_type, mode)
+"O:Offering" --> System : Confirm
+System -> Offerings : add(O)
+Offerings --> System : Confirm 
+System --> Admin : Confirm
 
 @enduml
 
@@ -18,14 +19,15 @@ actor Admin
 participant System
 collections Instructors
 participant "I:Instructor"
+autonumber
 
-Admin -> System : 1. deleteInstructor(id : Integer)
-System -> Instructors : 2. find(id)
-Instructors --> System : 3. return I: Instructor
-System -> Instructors : 4. confirmDelete(I)
-Instructors -> "I:Instructor" !! : 5. delete
-Instructors --> System : 6. Confirm
-System --> Admin : 7. Confirm
+Admin -> System : deleteInstructor(id : Integer)
+System -> Instructors : find(id)
+Instructors --> System : return I: Instructor
+System -> Instructors : confirmDelete(I)
+Instructors -> "I:Instructor" !! : delete
+Instructors --> System : Confirm
+System --> Admin : Confirm
 
 @enduml
 
@@ -34,13 +36,14 @@ actor Admin
 participant System
 collections Clients
 participant "C:Client"
+autonumber
 
-Admin -> System : 1. deleteClient(id : Integer)
-System -> Clients : 2. find(id)
-Clients --> System : 3. return C: Client
-System -> Clients : 4. confirmDelete(C)
-Clients -> "C:Client" !! : 5. delete
-Clients --> System : 6. Confirm
-System --> Admin : 7. Confirm
+Admin -> System : deleteClient(id : Integer)
+System -> Clients : find(id)
+Clients --> System : return C: Client
+System -> Clients : confirmDelete(C)
+Clients -> "C:Client" !! : delete
+Clients --> System : Confirm
+System --> Admin : Confirm
 
 @enduml

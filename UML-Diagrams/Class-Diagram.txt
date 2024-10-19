@@ -8,8 +8,8 @@ class City {
     +city_id : Integer
 }
 
-class Location {
-    +location_id : Integer
+class Branch {
+    +branch_id : Integer
 }
 
 class Schedule {
@@ -20,6 +20,7 @@ class TimeSlot {
     +time_slot_id : Integer
     +start_time : DateTime
     +end_time : DateTime
+    +isReserved : Boolean
 }
 
 class TimeSlotCatalogue {
@@ -32,12 +33,15 @@ class Instructor {
     +phone : String
     +specialization : String
     +is_active : Boolean
+    +email : String
+    +password : String
 }
 
 class Offering {
     +offering_id : Integer
     +lesson_type : String
     +mode : String
+    +capacity: Integer
 }
 
 class PublicOffering {
@@ -48,40 +52,38 @@ class PublicOffering {
 
 class Client {
     +client_id : Integer
-    +age:int
-}
-
-class Guardian{
-    +guardian_id : Integer
     +age : Integer
+    +guardian_id : Null, Integer
+    +email : String
+    +password : String
 }
 
 class Administrator {
     +admin_id : Integer
+    +email : String
+    +password : String
 }
 
 ' Aggregations
-Province o-- City : aggregate
-City o-- Location : aggregate
-Schedule o-- PublicOffering : aggregate
-TimeSlotCatalogue o-- TimeSlot : aggregate
+Province o-- City
+City o-- Branch
+Schedule o-- PublicOffering
+TimeSlotCatalogue o-- TimeSlot
 
 ' Relationships
 Instructor "1" -- "0..*" City : is available in
-Location "1" -- "0..1" Schedule : has
-PublicOffering "1" -- "0..*" TimeSlot : reserves
 Instructor "1" -- "0..*" Offering : accepts
 Instructor "1" -- "0..*" PublicOffering : creates
-Offering "1" -- "0..*" PublicOffering : derived from
 Client "1" -- "0..*" PublicOffering : registers
-Guardian "0..1" -- "1" Client : is responsible for
 Administrator "1" -- "0..*" Offering : manages
 Administrator "1" -- "0..*" Instructor : manages
 Administrator "1" -- "0..*" Client : manages
-Administrator "1" -- "0..*" Guardian : manages
+Offering  -- TimeSlotCatalogue
+Instructor "1" -- "1" Schedule : has
+Client "1" -- "1" Schedule : has
+Branch "1" -- "1" Schedule : has
 
-' Connections to TimeSlotCatalogue
-Schedule "1" -- "1" TimeSlotCatalogue : linked to
-PublicOffering "1" -- "1" TimeSlotCatalogue : linked to
+'Inheritance
+Offering <|-- PublicOffering : inheritance
 
 @enduml
