@@ -25,9 +25,6 @@ package "Scheduling" {
         +isReserved : Boolean
     }
 
-    class TimeSlotCatalogue {
-        +catalogue_id : Integer
-    }
 }
 
 package "Users" {
@@ -73,8 +70,7 @@ package "Offerings" {
 ' Aggregations
 Province o-- City
 City o-- Branch
-Schedule o-- PublicOffering
-TimeSlotCatalogue o-- TimeSlot
+Schedule o-- TimeSlot
 
 ' Relationships
 Instructor "1" -- "0..*" City : is available in
@@ -84,10 +80,11 @@ Client "1" -- "0..*" PublicOffering : registers
 Administrator "1" -- "0..*" Offering : manages
 Administrator "1" -- "0..*" Instructor : manages
 Administrator "1" -- "0..*" Client : manages
-Offering  -- TimeSlotCatalogue
 Instructor "1" -- "1" Schedule : has
 Client "1" -- "1" Schedule : has
 Branch "1" -- "1" Schedule : has
+Branch "1" -- "0..*" TimeSlot : hosts
+PublicOffering "1" -- "1" TimeSlot : occurs during
 
 'Inheritance
 Offering <|-- PublicOffering : inheritance
