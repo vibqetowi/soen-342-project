@@ -16,9 +16,9 @@ class TimeSlot:
 
 
 class Schedule:
-    def __init__(self, schedule_id, branch):
+    def __init__(self, schedule_id, schedule_owner_id):
         self.schedule_id = schedule_id
-        self.branch = branch
+        self.schedule_owner_id = schedule_owner_id #owner can be a client, a branch or an instructor 
         self.time_slots = []
         branch.add_schedule(self)
 
@@ -29,4 +29,4 @@ class Schedule:
         return [slot for slot in self.time_slots if not slot.is_reserved]
 
     def __repr__(self):
-        return f"Schedule({self.schedule_id}) for Branch({self.branch.name})"
+        return f"Schedule({self.schedule_id}) for Owner({self.schedule_owner_id .name})"
