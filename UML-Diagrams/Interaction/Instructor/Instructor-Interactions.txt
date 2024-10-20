@@ -53,10 +53,9 @@ collections SuitableO
 participant "O:Offering"
 collections Instructors
 participant "I:Instructor"
-participant "I.Schedule:Schedule"
 collections PublicOfferings
 participant "PO:PublicOffering"
-note over of "I.Schedule:Schedule": nowhere does it say the number of instructors teaching a certain class must be 1 and only 1
+note over of "I:Instructor": nowhere does it say the number of instructors teaching a certain class must be 1 and only 1
 
 autonumber
 
@@ -74,25 +73,22 @@ alt#LightBlue #LightBlue (SuitableO not NULL)
         "O:Offering" --> System : return O.Timeslots
         System -> "Instructors" : find(instructor_id)
         Instructors --> System : return("I:Instructor")
-        System -> "I:Instructor" : getSchedule()
-        "I:Instructor" --> System : return I.Schedule
-        System -> "I.Schedule:Schedule" : getTimeSlots()
-        "I.Schedule:Schedule" --> System : return I.Schedule.Timeslots
+        System -> "I:Instructor" : getTimeSlots()
+        "I:Instructor" --> System : return I.Schedule.Timeslots
 
         System -> System : checkOverlap(O.TimeSlots, I.Schedule.Timeslots)
 
         alt#LightCoral #LightCoral (overlap between O.TimeSlots and I.Schedule.Timeslots)
             System --> Instructor : error "schedule conflict"
-        else #LightCoral Failure
+        else #LightCoral No Overlap
             System -> PublicOfferings : makePublicOffering(instructor_id, O)
-            PublicOfferings --> "PO:PublicOffering" : create(instructor_id, O)
-            "PO:PublicOffering" --> PublicOfferings : Confirm
+            PublicOfferings --> "PO:PublicOffering" **: create(instructor_id, O)
+            "PO:PublicOffering" --> PublicOfferings : Return "PO:PublicOffering"
             PublicOfferings --> System : return PO
-            System -> "I:Instructor" : addPublicOffering(PO)
-            "I:Instructor" -> "I.Schedule:Schedule" : add(PO)
-            "I.Schedule:Schedule" --> "I:Instructor" : Confirm
+            System -> PublicOfferings: add(PO)
+            PublicOfferings --> System : Confirm
+            System -> "I:Instructor" : I.Schedule.add(PO)
             "I:Instructor" --> System : Confirm
-            System --> Instructor : Confirm
         end
         System --> Instructor: Prompt to continue or exit
     end

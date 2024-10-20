@@ -9,7 +9,7 @@ autonumber
 User -> System : registerClient(email : String, password : String, age : Integer)
 System -> System : hash(password)
 
-alt (age < 18)
+alt#LightBlue #LightBlue (age < 18)
     System -> User : request guardian_id
     User -> System : input(guardian_id)
     System -> Clients : find(guardian_id)
@@ -18,7 +18,7 @@ alt (age < 18)
     "C:Client" --> System : Confirm
     System -> Clients : add(C)
     Clients --> System : Confirm
-else (age >= 18)
+else #LightCoral (age >= 18)
     System -> "C:Client" ** : create(client_id: Integer, email, hashed_password, age)
     "C:Client" --> System : Confirm
     System -> Clients : add(C)
@@ -34,8 +34,9 @@ System --> User : Confirm
 @startuml
 actor User
 participant System
-participant "C:Client"
 collections Clients
+participant "C:Client"
+
 
 autonumber
 
@@ -65,7 +66,6 @@ collections SuitablePO
 participant "PO:PublicOffering"
 collections Clients
 participant "C:Client"
-participant "C.Schedule:Schedule"
 
 autonumber
 
@@ -80,26 +80,22 @@ alt#LightBlue #LightBlue (SuitablePO not NULL)
         System -> SuitablePO : find(offering_id)
         SuitablePO --> System : return PO:PublicOffering
         System -> "PO:PublicOffering" : getCapacity()
-        "PO:PublicOffering" --> System : return capacity
+        "PO:PublicOffering" --> System : return PO.capacity
         
-        alt#LightYellow #LightYellow (capacity > 0)
+        alt#LightYellow #LightYellow (PO.capacity > 0)
             System -> "PO:PublicOffering" : getTimeslots()
             "PO:PublicOffering" --> System : return PO.Timeslots
             System -> Clients : find(client_id)
             Clients --> System : return "C:Client"
-            System -> "C:Client" : getSchedule()
-            "C:Client" --> System : return "C.Schedule"
-            System -> "C.Schedule:Schedule" : getTimeSlots()
-            "C.Schedule:Schedule" --> System : return "C.Schedule.Timeslots"
-            "C.Schedule:Schedule" --> "C:Client" : return "C.Schedule.Timeslots"
+            System -> "C:Client" : getTimeSlots()
             "C:Client" --> System : return "C.Schedule.Timeslots"
-
             System -> System : checkOverlap(PO.TimeSlots, C.Schedule.Timeslots)
 
             alt#LightCoral #LightCoral (overlap between PO.TimeSlots and C.Schedule.Timeslots)
                 System --> Client : error "schedule conflict"
-            else #LightCoral Failure
-                System --> Client : error "schedule conflict"
+            else #LightCoral No Overlap
+                System --> "C:Client" : C.Schedule.add(PO)
+                "C:Client" --> System : Confirm
             end
         else #LightYellow Failure
             System --> Client : error "all offerings full"
@@ -109,7 +105,7 @@ alt#LightBlue #LightBlue (SuitablePO not NULL)
 else #LightBlue Failure
     System --> Client : error "no offering found"
 end
-
+System -> Client: Confirm
 @enduml
 
 '__________________________________________
@@ -119,11 +115,10 @@ actor Client
 participant System
 collections PublicOfferings
 participant "PO:PublicOffering"
-collections Clients
-participant "C:Client"
-participant "C.Schedule:Schedule"
 collections Instructors
 participant "I:Instructor"
+collections Clients
+participant "C:Client"
 
 autonumber
 
@@ -138,7 +133,7 @@ System -> "PO:PublicOffering" : getClientAndInstructorLists()
 System -> "PO:PublicOffering" : PO.clientList.remove(self.client_id)
 "PO:PublicOffering" --> System : Confirm removal
 
-    loop#LightGreen #LightGreen Notify instructor
+    loop#LightGreen #LightGreen For Instructor in PO.instructorList
         System -> Instructors : find(instructor_id)
         Instructors --> System : return I:Instructor
         System -> "I:Instructor" : notifyCancellation()
@@ -151,10 +146,8 @@ System -> "PO:PublicOffering" : adjustCapacity()
 
 System -> "C:Client" : find(client_id)
 "C:Client" --> System : return C:Client
-System -> "C:Client" : getSchedule()
-"C:Client" --> System : return C.Schedule
-System -> "C.Schedule:Schedule" : remove(PO)
-"C.Schedule:Schedule" --> System : Confirm removal
+System -> "C:Client" : C.Schedule.remove(PO)
+"C:Client" --> System : Confirm
 
 System --> Client : Confirm 
 
