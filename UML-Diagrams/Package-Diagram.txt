@@ -1,35 +1,87 @@
 @startuml
+
 package "Location" {
+    class LocationCatalog {
+        +provinces : List<Province>
+    }
+    
     class Province {
-        +province_id : Integer
+        +province_id : Integer <<PK>>
+        +cities : List<City>
     }
 
     class City {
-        +city_id : Integer
+        +city_id : Integer <<PK>>
+        +province_id : Integer <<FK>>
+        +branches : List<Branch>
     }
 
     class Branch {
-        +branch_id : Integer
+        +branch_id : Integer <<PK>>
+        +city_id : Integer <<FK>>
     }
+
+    ' Relationships for Location
+    LocationCatalog o-- Province
+    Province o-- City
+    City o-- Branch
 }
 
 package "Scheduling" {
+    class ScheduleCatalog {
+        +schedules: List<Schedule>
+    }
+
     class Schedule {
-        +schedule_id : Integer
+        +schedule_id : Integer <<PK>>
+        +schedule_owner_id : Integer <<FK>>
+        +timeSlots : List<TimeSlot>
+        +publicOfferings : List<PublicOffering>
     }
 
     class TimeSlot {
-        +time_slot_id : Integer
+        +time_slot_id : Integer <<PK>>
+        +schedule_id : Integer <<FK>>
         +start_time : DateTime
         +end_time : DateTime
         +isReserved : Boolean
     }
 
+    ' Relationships for Scheduling
+    ScheduleCatalog o-- Schedule
+    Schedule o-- TimeSlot
+}
+
+package "Offerings" {
+    class OfferingCatalog {
+        +offerings : List<Offering>
+    }
+
+    class Offering {
+        +offering_id : Integer <<PK>>
+        +lesson_type : String
+        +mode : String
+        +capacity : Integer
+        +instructor_id : Integer <<FK>>
+    }
+
+    class PublicOffering {
+        +public_offering_id : Integer <<PK>>
+        +offering_id : Integer <<FK>>
+        +booking_status : String <<enum>>
+        +max_clients : Integer
+        +instructor_ids: List<Integer>  
+        +associated_booking_id_list: List<Integer>
+    }
+
+    ' Relationships for Offerings
+    OfferingCatalog o-- Offering
+    PublicOffering <|-- Offering : inheritance
 }
 
 package "Users" {
     class Instructor {
-        +instructor_id : Integer
+        +instructor_id : Integer <<PK>>
         +name : String
         +phone : String
         +specialization : String
@@ -38,56 +90,85 @@ package "Users" {
     }
 
     class Client {
-        +client_id : Integer
+        +client_id : Integer <<PK>>
         +age : Integer
-        +guardian_id : Null, Integer
+        +guardian_id : Null, Integer <<FK>>
         +email : String
         +password : String
     }
 
     class Administrator {
-        +admin_id : Integer
+        +admin_id : Integer <<PK>>
         +email : String
         +password : String
     }
-}
 
-package "Offerings" {
-    class Offering {
-        +offering_id : Integer
-        +lesson_type : String
-        +mode : String
-        +capacity: Integer
+    class UserCatalog {
+        +users : List<Administrator, Instructor, Client>
     }
 
-    class PublicOffering {
-        +public_offering_id : Integer
-        +booking_status : String <<enum>>
-        +max_clients: Integer
-    }
+    ' Relationships for Users
+    UserCatalog o-- Administrator
+    UserCatalog o-- Instructor
+    UserCatalog o-- Client
 }
 
-' Aggregations
-Province o-- City
-City o-- Branch
-Schedule o-- TimeSlot
+package "Bookings" {
+    class BookingCatalog {
+        +bookings : List<Booking>
+    }
 
-' Relationships
-Instructor "1" -- "0..*" City : is available in
+    class Booking {
+        +booking_id : Integer <<PK>>
+        +booked_by_client_id : Integer <<FK>>
+        +booked_for_client_id : List<Integer>
+        +public_offering_id : Integer <<FK>>
+    }
+    
+    ' Relationships for Bookings
+    BookingCatalog o-- Booking
+}
+
+' Cross package relationships
 Instructor "1" -- "0..*" Offering : accepts
-Instructor "1" -- "0..*" PublicOffering : creates
-Client "1" -- "0..*" PublicOffering : registers
-Administrator "1" -- "0..*" Offering : manages
-Administrator "1" -- "0..*" Instructor : manages
-Administrator "1" -- "0..*" Client : manages
-Instructor "1" -- "1" Schedule : has
-Client "1" -- "1" Schedule : has
-Branch "1" -- "1" Schedule : has
-Branch "1" -- "0..*" TimeSlot : hosts
-PublicOffering "1" -- "1" TimeSlot : occurs during
+Instructor --* PublicOffering : creates
+Client --* Booking : creates
+PublicOffering o-- Booking 
+Schedule o-- PublicOffering
 
-'Inheritance
-Offering <|-- PublicOffering : inheritance
+class System {
+    +login() : void
+    +register(): void
+    +adminMethods : [...]
+    +clientMethods : [...]
+    +instructorMethods : [...]
+}
 
+' System Access Control
+System "1" -- "1" LocationCatalog : manageLocations
+System "1" -- "1" ScheduleCatalog : manageSchedules
+System "1" -- "1" UserCatalog : manageUsers
+System "1" -- "1" OfferingCatalog : manageOfferings
+System "1" -- "1" BookingCatalog : manageBookings
+
+' User Methods
+Administrator --> System : adminMethods()
+Client --> System : clientMethods()
+Instructor --> System : instructorMethods()
+
+' Notes
+note top of System
+    Admin: Full access to manage locations,
+           schedules, offerings, and users.
+
+    Other Users: Limited access
+                 No access to admin functions.
+end note
+
+note top of Bookings
+A Client can book a Public Offering 
+for themselves or for others (for 
+instance a Guardian booking for their child).
+end note
 
 @enduml

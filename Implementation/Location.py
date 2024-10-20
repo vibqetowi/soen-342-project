@@ -1,3 +1,5 @@
+from Scheduling import ScheduleCatalog
+
 class Province:
     def __init__(self, province_id, name):
         self.province_id = province_id
@@ -25,8 +27,7 @@ class Branch:
         self.branch_id = branch_id
         self.name = name
         self.city = city
-        self.schedules = []
         city.add_branch(self)
+        self.scchedule = ScheduleCatalog.create_schedule(branch_id)
 
-    def add_schedule(self, schedule):
-        self.schedules.append(schedule)
+ 
