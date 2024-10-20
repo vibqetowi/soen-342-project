@@ -23,10 +23,6 @@ class TimeSlot {
     +isReserved : Boolean
 }
 
-class TimeSlotCatalogue {
-    +catalogue_id : Integer
-}
-
 class Instructor {
     +instructor_id : Integer
     +name : String
@@ -67,7 +63,7 @@ class Administrator {
 Province o-- City
 City o-- Branch
 Schedule o-- PublicOffering
-TimeSlotCatalogue o-- TimeSlot
+Schedule o-- TimeSlot
 
 ' Relationships
 Instructor "1" -- "0..*" City : is available in
