@@ -1,142 +1,156 @@
 @startuml
-
-package "Location" {
-    class LocationCatalog {
+title UML Package Diagram
+package "Location" #pink {
+    class LocationCatalog <<singleton>> {
+        - LocationCatalog() 
+        +getInstance() : LocationCatalog
         +provinces : List<Province>
     }
     
     class Province {
         +province_id : Integer <<PK>>
-        +cities : List<City>
+        cities : List<City>
     }
 
     class City {
         +city_id : Integer <<PK>>
         +province_id : Integer <<FK>>
-        +branches : List<Branch>
+        branches : List<Branch>
     }
 
     class Branch {
         +branch_id : Integer <<PK>>
         +city_id : Integer <<FK>>
+        +schedule_id : Integer <<FK>>  
     }
 
-    ' Relationships for Location
-    LocationCatalog o-- Province
-    Province o-- City
-    City o-- Branch
+    LocationCatalog o--[#red,bold] Province
+    Province o--[#red,bold] City
+    City o--[#red,bold] Branch
 }
 
-package "Scheduling" {
-    class ScheduleCatalog {
+package "Scheduling" #lightblue {
+    class ScheduleCatalog <<singleton>> {
+        - ScheduleCatalog() 
+        +getInstance() : ScheduleCatalog
         +schedules: List<Schedule>
     }
 
     class Schedule {
         +schedule_id : Integer <<PK>>
-        +schedule_owner_id : Integer <<FK>>
-        +timeSlots : List<TimeSlot>
-        +publicOfferings : List<PublicOffering>
+        +schedule_owner_id : Integer <<FK>> 
+        timeSlots : List<TimeSlot>
+        publicOfferings : List<PublicOffering>
     }
 
     class TimeSlot {
-        +time_slot_id : Integer <<PK>>
+        +start_time : DateTime <<PK>>
         +schedule_id : Integer <<FK>>
-        +start_time : DateTime
-        +end_time : DateTime
-        +isReserved : Boolean
+        end_time : DateTime
+        isReserved : Boolean
     }
 
-    ' Relationships for Scheduling
-    ScheduleCatalog o-- Schedule
-    Schedule o-- TimeSlot
+    ScheduleCatalog o--[#blue,bold] Schedule
+    Schedule *--[#blue,bold] TimeSlot
 }
 
-package "Offerings" {
-    class OfferingCatalog {
+package "Offerings" #lightgreen {
+    class OfferingCatalog <<singleton>> {
+        - OfferingCatalog() 
+        +getInstance() : OfferingCatalog
         +offerings : List<Offering>
     }
 
     class Offering {
         +offering_id : Integer <<PK>>
-        +lesson_type : String
-        +mode : String
-        +capacity : Integer
         +instructor_id : Integer <<FK>>
+        lesson_type : String
+        mode : String
+        capacity : Integer
     }
 
     class PublicOffering {
         +public_offering_id : Integer <<PK>>
         +offering_id : Integer <<FK>>
-        +booking_status : String <<enum>>
-        +max_clients : Integer
-        +instructor_ids: List<Integer>  
-        +associated_booking_id_list: List<Integer>
+        max_clients : Integer
+        instructor_id_list: List<Integer>
+        associated_booking_id_list: List<Integer>
+        reserved_timeslot_id_list: List<DateTime>
     }
 
-    ' Relationships for Offerings
-    OfferingCatalog o-- Offering
-    PublicOffering <|-- Offering : inheritance
+    OfferingCatalog o--[#green,bold] Offering
+    PublicOffering <|--[#green,bold] Offering : inheritance
 }
 
-package "Users" {
-    class Instructor {
+package "Users" #lightyellow {
+    class Instructor #brown;text:white {
         +instructor_id : Integer <<PK>>
-        +name : String
-        +phone : String
-        +specialization : String
-        +email : String
-        +password : String
+        +schedule_id : Integer <<FK>>          
+        name : String
+        phone : String
+        specialization : String
+        email : String
+        password : String
     }
 
-    class Client {
+    class Client #FFD580 {
         +client_id : Integer <<PK>>
-        +age : Integer
-        +guardian_id : Null, Integer <<FK>>
-        +email : String
-        +password : String
+        +guardian_id : Integer, NULL <<FK>>
+        +schedule_id : Integer <<FK>>  
+        age : Integer
+        email : String
+        password : String
     }
 
-    class Administrator {
+    class Administrator #black;text:white {
         +admin_id : Integer <<PK>>
-        +email : String
-        +password : String
+        email : String
+        password : String
     }
 
-    class UserCatalog {
+    class UserCatalog <<singleton>> {
+        - UserCatalog() 
+        +getInstance() : UserCatalog
         +users : List<Administrator, Instructor, Client>
     }
 
-    ' Relationships for Users
-    UserCatalog o-- Administrator
-    UserCatalog o-- Instructor
-    UserCatalog o-- Client
+    UserCatalog o--[#black,bold] Administrator
+    UserCatalog o--[#brown,bold] Instructor
+    UserCatalog o--[#orange,bold] Client
 }
 
-package "Bookings" {
-    class BookingCatalog {
+package "Bookings" #E6E6FA {
+    class BookingCatalog <<singleton>> {
+        - BookingCatalog() 
+        +getInstance() : BookingCatalog
         +bookings : List<Booking>
     }
 
     class Booking {
         +booking_id : Integer <<PK>>
         +booked_by_client_id : Integer <<FK>>
-        +booked_for_client_id : List<Integer>
         +public_offering_id : Integer <<FK>>
+        booked_for_client_id : List<Integer>
     }
     
-    ' Relationships for Bookings
-    BookingCatalog o-- Booking
+    BookingCatalog o--[#purple,bold] Booking
 }
 
 ' Cross package relationships
-Instructor "1" -- "0..*" Offering : accepts
-Instructor --* PublicOffering : creates
-Client --* Booking : creates
-PublicOffering o-- Booking 
-Schedule o-- PublicOffering
+Instructor "1" --[#brown,bold] "0..*" Offering : accepts >
+Instructor -[#brown,bold]-* PublicOffering : creates
+Instructor "1" --[#brown,bold] "0..*" City: isAvailableIn >
+Instructor "1" --[#brown,bold] "1" Schedule : has >
+Client -[#orange,bold]-* Booking : creates
+Client "1" --[#orange,bold] "1" Schedule : has >
+PublicOffering o--[#purple,bold] Booking 
+PublicOffering *-[#blue,bold]- TimeSlot: reserves >
+Schedule o--[#green,bold] PublicOffering
+Branch "1" --[#red,bold] "1" Schedule : has >
 
-class System {
+class System <<singleton>> {
+    - System() 
+    +getInstance() : System
     +login() : void
     +register(): void
     +adminMethods : [...]
@@ -144,31 +158,44 @@ class System {
     +instructorMethods : [...]
 }
 
-' System Access Control
-System "1" -- "1" LocationCatalog : manageLocations
-System "1" -- "1" ScheduleCatalog : manageSchedules
-System "1" -- "1" UserCatalog : manageUsers
-System "1" -- "1" OfferingCatalog : manageOfferings
-System "1" -- "1" BookingCatalog : manageBookings
+' System Associations
+System "1" --[#red,bold] "1" LocationCatalog : manages >
+System "1" --[#blue,bold] "1" ScheduleCatalog : manages >
+System "1" --[#black,bold] "1" UserCatalog : manages >
+System "1" --[#green,bold] "1" OfferingCatalog : manages >
+System "1" --[#purple,bold] "1" BookingCatalog : manages >
+Administrator -[#black,bold]- System : uses >
+Client -[#orange,bold]- System : uses >
+Instructor -[#brown,bold]- System : uses >
 
-' User Methods
-Administrator --> System : adminMethods()
-Client --> System : clientMethods()
-Instructor --> System : instructorMethods()
+'Association Classes
+(Client, PublicOffering) .. Booking 
 
-' Notes
-note top of System
-    Admin: Full access to manage locations,
-           schedules, offerings, and users.
 
-    Other Users: Limited access
-                 No access to admin functions.
+note right of System
+-All users: Read and write own account info
+-Admin: Read and write all records
+-Client:
+    Read Public Offering
+    Read and write own bookings 
+    Limited read and write to User Catalog (guardian, own instructor)
+-Instructor: 
+    Read Offering
+    Read and limited write to Public Offering
+    Limited read and write to Booking Catalog (own lessons)
+    Limited read to User Catalog (own lessons)
 end note
 
 note top of Bookings
 A Client can book a Public Offering 
 for themselves or for others (for 
 instance a Guardian booking for their child).
+
+Also, Booking is the association class between
+Client and PublicOffering, I'm aware it's unclear
 end note
 
+note top of PublicOffering
+TODO: fix timeslot reservation
+end note
 @enduml
