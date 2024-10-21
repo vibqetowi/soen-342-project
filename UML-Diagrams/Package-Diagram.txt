@@ -102,7 +102,7 @@ package "Users" #lightyellow {
         password : String
     }
 
-    class Administrator #black;text:white {
+    class Administrator #turquoise;text:black {
         +admin_id : Integer <<PK>>
         email : String
         password : String
@@ -114,7 +114,7 @@ package "Users" #lightyellow {
         +users : List<Administrator, Instructor, Client>
     }
 
-    UserCatalog o--[#black,bold] Administrator
+    UserCatalog o--[#turquoise,bold] Administrator
     UserCatalog o--[#brown,bold] Instructor
     UserCatalog o--[#orange,bold] Client
 }
@@ -159,14 +159,14 @@ class System <<singleton>> {
 }
 
 ' System Associations
-System "1" --[#red,bold] "1" LocationCatalog : manages >
-System "1" --[#blue,bold] "1" ScheduleCatalog : manages >
-System "1" --[#black,bold] "1" UserCatalog : manages >
-System "1" --[#green,bold] "1" OfferingCatalog : manages >
-System "1" --[#purple,bold] "1" BookingCatalog : manages >
-Administrator -[#black,bold]- System : uses >
-Client -[#orange,bold]- System : uses >
-Instructor -[#brown,bold]- System : uses >
+System "1" -[#black,bold]-> "1" LocationCatalog : manages 
+System "1" --[#black,bold]-> "1" ScheduleCatalog : manages 
+System "1" --[#black,bold]-> "1" UserCatalog : manages 
+System "1" --[#black,bold]-> "1" OfferingCatalog : manages 
+System "1" --[#black,bold]-> "1" BookingCatalog : manages 
+Administrator -[#turquoise,bold]-> System : uses 
+Client -[#orange,bold]-> System : uses 
+Instructor -[#brown,bold]-> System : uses 
 
 'Association Classes
 (Client, PublicOffering) .. Booking 
@@ -186,7 +186,7 @@ note right of System
     Limited read to User Catalog (own lessons)
 end note
 
-note top of Bookings
+note top of BookingCatalog
 A Client can book a Public Offering 
 for themselves or for others (for 
 instance a Guardian booking for their child).
@@ -196,6 +196,6 @@ Client and PublicOffering, I'm aware it's unclear
 end note
 
 note top of PublicOffering
-TODO: fix timeslot reservation
+TODO: figure out timeslot reservation
 end note
 @enduml

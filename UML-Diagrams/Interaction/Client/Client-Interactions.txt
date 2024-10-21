@@ -1,57 +1,55 @@
 @startuml
-actor User
+actor Client
 participant System
+collections UserCatalog
 participant "C:Client"
 collections Clients
 
+title Register Client
+
+note over of System
+I use *args for other account details
+space constraints, thank you
+end note
+
 autonumber
 
-User -> System : registerClient(email : String, password : String, age : Integer)
+Client -> System : registerClient(email, password, *args)
 System -> System : hash(password)
-
-alt#LightBlue #LightBlue (age < 18)
-    System -> User : request guardian_id
-    User -> System : input(guardian_id)
-    System -> Clients : find(guardian_id)
-    Clients --> System : return G: Guardian
-    System -> "C:Client" ** : create(client_id: Integer, email, hashed_password, age, G)
-    "C:Client" --> System : Confirm
-    System -> Clients : add(C)
-    Clients --> System : Confirm
-else #LightCoral (age >= 18)
-    System -> "C:Client" ** : create(client_id: Integer, email, hashed_password, age)
-    "C:Client" --> System : Confirm
-    System -> Clients : add(C)
-    Clients --> System : Confirm
-end
-
-System --> User : Confirm
+System -> System: generate_id()
+System -> UserCatalog: newClient(id,email,hashed_password, *args)
+UserCatalog  -> "C:Client" **: create(*args)
+"C:Client" --> UserCatalog : Confirm
+UserCatalog -> Clients : add(C)
+Clients --> UserCatalog: Confirm
+UserCatalog --> System: Confirm
+System --> Client: Confirm
 
 @enduml
-
 '__________________________________________
 
 @startuml
-actor User
+actor Client
 participant System
-collections Clients
+collections UserCatalog
 participant "C:Client"
 
+title Client Login
 
 autonumber
 
-User -> System : login(email : String, password : String)
-System -> Clients : find(email)
-Clients --> System : return C:Client
+Client -> System : login(email : String, password : String)
+System -> UserCatalog : find(email)
+UserCatalog --> System : return C:Client
 
 System -> "C:Client" : getHashedPassword()
 "C:Client" --> System : return stored_hashed_password
 System -> System : hash(password)
 
 alt#LightBlue #LightBlue (stored_hashed_password == hashed_password)
-    System --> User : Confirm login
+    System --> Client : Confirm login
 else #LightCoral
-    System --> User : Error (invalid credentials)
+    System --> Client : Error (invalid credentials)
 end
 @enduml
 

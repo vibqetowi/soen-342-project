@@ -1,20 +1,29 @@
 @startuml
 actor Instructor
 participant System
+collections UserCatalog
 participant "I:Instructor"
 collections Instructors
 
+title Register Instructor
+
+note over of System
+I use *args for other account details
+space constraints, thank you
+end note
+
 autonumber
 
-Instructor -> System : registerInstructor(name : String, phone : String, specialization : String, email : String, password : String, cities_available: List[City])
+Instructor -> System : registerInstructor(email, password, *args)
 System -> System : hash(password)
-
-System -> "I:Instructor" ** : create(instructor_id: Integer, name, phone, specialization, email, hashed_password, cities_available)
-"I:Instructor" --> System : Confirm
-System -> Instructors : add(I)
-Instructors --> System : Confirm
-
-System --> Instructor : Confirm
+System -> System: generate_id()
+System -> UserCatalog: newInstructor(id,email,hashed_password, *args)
+UserCatalog  -> "I:Instructor" **: create(*args)
+"I:Instructor" --> UserCatalog : Confirm
+UserCatalog -> Instructors : add(I)
+Instructors --> UserCatalog: Confirm
+UserCatalog --> System: Confirm
+System --> Instructor: Confirm
 
 @enduml
 
@@ -23,14 +32,16 @@ System --> Instructor : Confirm
 @startuml
 actor Instructor
 participant System
+collections UserCatalog
 participant "I:Instructor"
-collections Instructors
+
+title Instructor Login
 
 autonumber
 
 Instructor -> System : login(email : String, password : String)
-System -> Instructors : find(email)
-Instructors --> System : return I:Instructor
+System -> UserCatalog : find(email)
+UserCatalog --> System : return I:Instructor
 
 System -> "I:Instructor" : getHashedPassword()
 "I:Instructor" --> System : return stored_hashed_password
