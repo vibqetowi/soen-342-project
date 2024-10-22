@@ -54,97 +54,98 @@ end
 @enduml
 
 '__________________________________________
-
 @startuml
 actor Client
 participant System
-collections PublicOfferings
-note over of PublicOfferings : SuitablePO is a filtered subset of PublicOfferings
-collections SuitablePO
+collections OfferingCatalog
 participant "PO:PublicOffering"
-collections Clients
-participant "C:Client"
+collections ScheduleCatalog
+participant "S:Schedule"
+collections BookingCatalog
+participant "B:Booking"
 
 autonumber
 
-Client -> System : makeBooking(search_query)
-System -> PublicOfferings : find(search_query)
-PublicOfferings --> System : return SuitablePO
+title Client Make Booking
 
-alt#LightBlue #LightBlue (SuitablePO not NULL)
-    loop#LightGreen #LightGreen do while Client selects to continue (executes at least once) 
+Client -> System : makeBooking(search_query)
+System -> OfferingCatalog : find(search_query)
+OfferingCatalog --> System : return List<PublicOfferings>
+
+alt#LightBlue #LightBlue (List not empty)
+    loop #LightGreen do while Client selects to continue
         System --> Client : prompt to select Offering
         Client -> System : select(offering_id)
-        System -> SuitablePO : find(offering_id)
-        SuitablePO --> System : return PO:PublicOffering
+        System -> OfferingCatalog : find(offering_id)
+        OfferingCatalog --> System : return PO:PublicOffering
         System -> "PO:PublicOffering" : getCapacity()
         "PO:PublicOffering" --> System : return PO.capacity
-        
-        alt#LightYellow #LightYellow (PO.capacity > 0)
+
+        alt#LightCoral #LightCoral (PO.capacity > 0)
             System -> "PO:PublicOffering" : getTimeslots()
             "PO:PublicOffering" --> System : return PO.Timeslots
-            System -> Clients : find(client_id)
-            Clients --> System : return "C:Client"
-            System -> "C:Client" : getTimeSlots()
-            "C:Client" --> System : return "C.Schedule.Timeslots"
-            System -> System : checkOverlap(PO.TimeSlots, C.Schedule.Timeslots)
+            System -> ScheduleCatalog : find(client_id)
+            ScheduleCatalog --> System : return "S:Schedule"
+            System -> "S:Schedule" : getTimeSlots()
+            "S:Schedule" --> System : return "S.TimeSlots"
+            System -> System : checkOverlap(PO.TimeSlots, S.TimeSlots)
 
-            alt#LightCoral #LightCoral (overlap between PO.TimeSlots and C.Schedule.Timeslots)
+            alt#LightYellow #LightYellow (overlap between PO.TimeSlots and S.TimeSlots)
                 System --> Client : error "schedule conflict"
-            else #LightCoral No Overlap
-                System --> "C:Client" : C.Schedule.add(PO)
-                "C:Client" --> System : Confirm
+            else No Overlap
+                System -> BookingCatalog : createBooking(PO, S)
+                BookingCatalog -> "B:Booking" **: create()
+                "B:Booking" --> BookingCatalog: Confirm
+                BookingCatalog --> System : Confirm
+                System --> "S:Schedule" : add(PO)
+                "S:Schedule" --> System : Confirm
             end
-        else #LightYellow Failure
+        else
             System --> Client : error "all offerings full"
         end
         System --> Client: Prompt to continue or exit
     end
-else #LightBlue Failure
+else
     System --> Client : error "no offering found"
 end
 System -> Client: Confirm
 @enduml
-
 '__________________________________________
 
 @startuml
 actor Client
 participant System
-collections PublicOfferings
-participant "PO:PublicOffering"
-collections Instructors
-participant "I:Instructor"
-collections Clients
+collections OfferingCatalog
+participant "O:Offering"
+collections UserCatalog
 participant "C:Client"
 
 autonumber
 
 Client -> System : cancelBooking(offering_id)
 
-System -> PublicOfferings : find(offering_id)
-PublicOfferings --> System : return PO:PublicOffering
+System -> OfferingCatalog : find(offering_id)
+OfferingCatalog --> System : return O:Offering
 
-System -> "PO:PublicOffering" : getClientAndInstructorLists()
-"PO:PublicOffering" --> System : return PO.clientList, PO.instructorList
+System -> "O:Offering" : getClientList()
+"O:Offering" --> System : return O.clientList
 
-System -> "PO:PublicOffering" : PO.clientList.remove(self.client_id)
-"PO:PublicOffering" --> System : Confirm removal
+System -> "O:Offering" : O.clientList.remove(self.client_id)
+"O:Offering" --> System : Confirm removal
 
-    loop#LightGreen #LightGreen For Instructor in PO.instructorList
-        System -> Instructors : find(instructor_id)
-        Instructors --> System : return I:Instructor
-        System -> "I:Instructor" : notifyCancellation()
-        "I:Instructor" --> System : Confirm
-    end
+loop #LightGreen For each client in O.clientList
+    System -> UserCatalog : find(client_id)
+    UserCatalog --> System : return "C:Client"
+    System -> "C:Client" : notifyCancellation()
+    "C:Client" --> System : Confirm
+end
 
+System -> "O:Offering" : adjustCapacity()
+"O:Offering" --> System : Confirm
 
-System -> "PO:PublicOffering" : adjustCapacity()
-"PO:PublicOffering" --> System : Confirm
-
-System -> "C:Client" : find(client_id)
-"C:Client" --> System : return C:Client
-System -> "C:Client" : C.Schedule.remove(PO)
+System -> UserCatalog : find(client_id)
+UserCatalog --> System : return "C:Client"
+System -> "C:Client" : C.Schedule.remove(O)
 "C:Client" --> System : Confirm
 
 System --> Client : Confirm 
