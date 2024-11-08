@@ -1,0 +1,23 @@
+{
+	"folders": [
+		{
+			"path": "../../OneDrive - Concordia University - Canada/Uni/CAPSTONE/ESP code/serial demo"
+		},
+		{
+			"name": "DebugSerial",
+			"path": "../PlatformIO/Projects/DebugSerial"
+		},
+		{
+			"path": "../Capstone"
+		},
+		{
+			"name": "soen422-lab0",
+			"path": "../PlatformIO/Projects/soen422-lab0"
+		},
+		{
+			"name": "Lab2",
+			"path": "../PlatformIO/Projects/Lab2"
+		}
+	],
+	"settings": {}
+}

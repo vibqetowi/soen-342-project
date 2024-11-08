@@ -1,0 +1,190 @@
+@startuml
+actor Admin
+participant System
+collections OfferingCatalog
+participant "O:Offering" 
+collections Offerings
+
+title Create Offering
+
+autonumber
+
+Admin -> System : createOffering(offering_id : Integer, lesson_type : String, mode : String)
+System -> OfferingCatalog: newOffering(*args)
+OfferingCatalog -> "O:Offering" **: create(*args)
+"O:Offering" --> OfferingCatalog: Confirm
+OfferingCatalog -> Offerings: add(O)
+Offerings --> OfferingCatalog: Confirm
+OfferingCatalog --> System : Confirm 
+System --> Admin : Confirm
+
+@enduml
+
+__________________________________________
+
+@startuml
+actor Admin
+participant System
+collections UserCatalog
+participant "U:User"
+
+note over of UserCatalog
+I write User as generic datatype
+there's no meaningful difference 
+between client and instructor here
+end note
+
+title delete User
+
+autonumber
+
+Admin -> System : deleteUser(id)
+System -> UserCatalog : find(id)
+UserCatalog --> System : return U:User
+System -> UserCatalog : confirmDelete(U)
+UserCatalog -> "U:User" !! : delete
+UserCatalog --> System : Confirm
+System --> Admin : Confirm
+
+@enduml
+
+__________________________________________
+
+@startuml
+actor Admin
+participant System
+collections UserCatalog
+participant "U:User"
+
+note over of UserCatalog
+I write User as generic datatype
+there's no meaningful difference 
+between client and instructor here
+end note
+
+note over of System
+I write *args to suggest any possible edits
+end note
+
+title edit User
+
+autonumber
+
+Admin -> System : editUser(id,*args)
+System -> UserCatalog : find(id)
+UserCatalog --> System : return U:User
+System -> UserCatalog : confirmEdit(U)
+UserCatalog -> "U:User": editRecord(*args)
+"U:User" --> UserCatalog : Confirm  
+UserCatalog --> System : Confirm
+System --> Admin : Confirm
+
+@enduml
+
+__________________________________________
+
+@startuml
+actor Admin
+participant System
+collections BookingCatalog
+participant "B:Booking"
+
+title delete Booking
+
+autonumber
+
+Admin -> System : deleteBooking(id)
+System -> BookingCatalog : find(id)
+BookingCatalog --> System : return B:Booking
+System -> BookingCatalog : confirmDelete(B)
+BookingCatalog -> "B:Booking" !! : delete
+BookingCatalog --> System : Confirm
+System --> Admin : Confirm
+
+@enduml
+
+__________________________________________
+
+@startuml
+actor Admin
+participant System
+collections BookingCatalog
+participant "B:Booking"
+
+note over of System
+I write *args to suggest any possible edits
+end note
+
+title edit Booking
+
+autonumber
+
+Admin -> System : editBooking(id, *args)
+System -> BookingCatalog : find(id)
+BookingCatalog --> System : return B:Booking
+System -> BookingCatalog : confirmEdit(B)
+BookingCatalog -> "B:Booking" : editRecord(*args)
+"B:Booking" --> BookingCatalog : Confirm  
+BookingCatalog --> System : Confirm
+System --> Admin : Confirm
+
+@enduml
+
+__________________________________________
+
+@startuml
+actor Admin
+participant System
+collections OfferingCatalog
+participant "O:Offering"
+
+note over of OfferingCatalog
+There is no meaningful difference between 
+Public Offering and Offering here
+end note
+
+title delete Offering
+
+autonumber
+
+Admin -> System : deleteOffering(id)
+System -> OfferingCatalog : find(id)
+OfferingCatalog --> System : return O:Offering
+System -> OfferingCatalog : confirmDelete(O)
+OfferingCatalog -> "O:Offering" !! : delete
+OfferingCatalog --> System : Confirm
+System --> Admin : Confirm
+
+@enduml
+
+__________________________________________
+
+@startuml
+actor Admin
+participant System
+collections OfferingCatalog
+participant "O:Offering"
+
+note over of OfferingCatalog
+There is no meaningful difference between 
+Public Offering and Offering here
+end note
+
+note over of System
+I write *args to suggest any possible edits
+end note
+
+title edit Offering
+
+autonumber
+
+Admin -> System : editOffering(id, *args)
+System -> OfferingCatalog : find(id)
+OfferingCatalog --> System : return O:Offering
+System -> OfferingCatalog : confirmEdit(O)
+OfferingCatalog -> "O:Offering" : editRecord(*args)
+"O:Offering" --> OfferingCatalog : Confirm  
+OfferingCatalog --> System : Confirm
+System --> Admin : Confirm
+
+@enduml
