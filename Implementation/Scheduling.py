@@ -76,6 +76,28 @@ class _Schedule:
 
     def __repr__(self):
         return f"Schedule({self.schedule_id}) for Owner({self.schedule_owner_id})"
+    
+    def cancel_reserved_slots(self, timeslot_ids):
+        """Cancel reservations for specific time slots."""
+        for ts_id in timeslot_ids:
+            if ts_id in self.time_slots:
+                self.time_slots[ts_id].cancel_reservation()
+
+    def get_reserved_slots(self):
+        """Get all reserved time slots."""
+        return [slot for slot in self.time_slots.values() if slot.is_reserved]
+
+    def add_reserved_slots(self, timeslot_ids):
+        """Reserve time slots in the schedule."""
+        for ts_id in timeslot_ids:
+            if ts_id in self.time_slots:
+                self.time_slots[ts_id].reserve()
+
+    def cancel_reserved_slots(self, timeslot_ids):
+        """Cancel reservations for specific time slots."""
+        for ts_id in timeslot_ids:
+            if ts_id in self.time_slots:
+                self.time_slots[ts_id].cancel_reservation()
 
 class _TimeSlot:
     """Private class representing a time slot."""
