@@ -1,15 +1,12 @@
 from System import generate_id
 from Bookings import BookingCatalog
+from singleton_decorator import singleton
 
+@singleton
 class OfferingCatalog:
-    _instance = None
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(OfferingCatalog, cls).__new__(cls)
-            cls._instance._offerings = {}  # Key: offering_id, Value: Offering instance
-            cls._instance._public_offerings = {}  # Key: public_offering_id, Value: PublicOffering instance
-        return cls._instance
+    def __init__(self):
+        self._offerings = {}          # Dictionary to store offerings by ID
+        self._public_offerings = {}    # Dictionary to store public offerings by ID
 
     def create_offering(self, instructor_id, lesson_type, mode, capacity):
         offering_id = generate_id()
@@ -24,7 +21,8 @@ class OfferingCatalog:
         offering = self.get_offering(offering_id)
         if not offering:
             raise ValueError("Offering not found.")
-        public_offering_id = generate_id()
+        
+        public_offering_id = generate_id() 
         public_offering = PublicOffering(public_offering_id, offering, max_clients)
         self._public_offerings[public_offering_id] = public_offering
         return public_offering
@@ -35,7 +33,8 @@ class OfferingCatalog:
     def get_all_public_offerings(self):
         return list(self._public_offerings.values())
     
-#TODO: add methods to remove and list or modify offerings.
+    #TODO: add methods to remove and list or modify offerings.
+
 
 class Offering:
     def __init__(self, offering_id, instructor_id, lesson_type, mode, capacity):
@@ -49,9 +48,11 @@ class Offering:
         return (f"Offering(offering_id={self.offering_id}, instructor_id={self.instructor_id}, "
                 f"lesson_type='{self.lesson_type}', mode='{self.mode}', capacity={self.capacity})")
 
+
 class PublicOffering(Offering):
     def __init__(self, public_offering_id, offering, max_clients):
-        super().__init__(offering.offering_id, offering.instructor_id, offering.lesson_type, offering.mode, offering.capacity)
+        super().__init__(offering.offering_id, offering.instructor_id, 
+                        offering.lesson_type, offering.mode, offering.capacity)
         self.public_offering_id = public_offering_id
         self.max_clients = max_clients
         self.instructor_id_list = [self.instructor_id]  # In case multiple instructors can be associated
@@ -68,19 +69,6 @@ class PublicOffering(Offering):
     def __repr__(self):
         return (f"PublicOffering(public_offering_id={self.public_offering_id}, offering_id={self.offering_id}, "
                 f"max_clients={self.max_clients}, instructor_id_list={self.instructor_id_list})")
-    
-    def get_client_ids(self):
-        """Get all client IDs associated with this offering."""
-        client_ids = []
-        for booking_id in self.associated_booking_id_list:
-            booking = BookingCatalog.get_instance().get_booking_by_id(booking_id)
-            if booking:
-                client_ids.extend(booking.booked_for_client_ids)
-        return client_ids
-
-    def adjust_capacity(self, amount):
-        """Adjust the capacity of the offering."""
-        self.max_clients += amount
 
     def get_client_ids(self):
         """Get all client IDs associated with this offering."""

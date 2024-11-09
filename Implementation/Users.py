@@ -1,19 +1,11 @@
 from System import generate_id, System
 from Bookings import Booking
+from singleton_decorator import singleton
 
+@singleton
 class UserCatalog:
-    _instance = None  # Singleton instance
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(UserCatalog, cls).__new__(cls)
-            cls._instance._initialized = False
-        return cls._instance
 
     def __init__(self):
-        if self._initialized:
-            return
-        self._initialized = True
         self.users = {}  # Dictionary to store users by their IDs
         self.email_to_user = {}  # Dictionary to map emails to user instances for login
 

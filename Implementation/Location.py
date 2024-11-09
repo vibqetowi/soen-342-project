@@ -1,6 +1,8 @@
 from Scheduling import ScheduleCatalog
 from System import generate_id
+from singleton_decorator import singleton
 
+@singleton
 class LocationCatalog:
     _instance = None  # Class variable to hold the singleton instance
 

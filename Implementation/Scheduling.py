@@ -1,19 +1,12 @@
 from datetime import datetime, timedelta
 from System import generate_id  # Assuming generate_id is a function to create unique IDs
 from Offerings import OfferingCatalog
+from singleton_decorator import singleton
 
+@singleton
 class ScheduleCatalog:
-    """Catalog for managing schedules."""
-    _instance = None  # Class variable to hold the singleton instance
-
-    def __new__(cls, *args, **kwargs):
-        if not cls._instance:
-            cls._instance = super().__new__(cls)  # Create a new instance if it doesn't exist
-        return cls._instance
 
     def __init__(self):
-        if not hasattr(self, '_initialized'):  # Ensure __init__ is only called once
-            self._initialized = True
             self.schedules_by_id = {}  # Hashtable to store schedules by ID
             self.schedules_by_owner = {}  # Hashtable to store schedules by owner ID
 

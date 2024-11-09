@@ -1,11 +1,14 @@
 import uuid
 import bcrypt
+from singleton_decorator import singleton
 
 from Users import UserCatalog, Client, Administrator, Instructor
 from Offerings import OfferingCatalog
 from Bookings import BookingCatalog
 from Location import LocationCatalog
 from Scheduling import ScheduleCatalog
+
+
 
 def generate_id() -> str:
     """Generates a random UUID for database IDs."""
@@ -19,19 +22,10 @@ def check_password(provided_password: str, stored_hashed_password: bytes) -> boo
     """Checks if the provided password matches the stored hashed password."""
     return bcrypt.checkpw(provided_password.encode('utf-8'), stored_hashed_password)
 
+@singleton
 class System:
-    _instance = None
-
-    @classmethod
-    def get_instance(cls):
-        if cls._instance is None:
-            cls._instance = System()
-        return cls._instance
 
     def __init__(self):
-        if hasattr(self, '_initialized'):
-            return
-        self._initialized = True
 
         # Initialize the catalogs
         self.user_catalog = UserCatalog()
