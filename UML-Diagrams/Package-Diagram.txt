@@ -1,43 +1,15 @@
 @startuml
-title UML Package Diagram - Complete System Design
-
-package "App" #lightgrey {
-    class UI {
-        -system: System
-        +displayPages()
-        +handleUserInput(input: Input)
-        +showMessage(message: String)
-    }
-
-    class System <<singleton>> {
-        -accessControl: AccessControl
-        -System() 
-        +getInstance(): System
-        +login(email: String, password: String): User
-        +register(userData: Map): User
-        +systemMethods()
-    }
-
-    class AccessControl {
-        +canAccess(user: User, resource: Object, action: Action): Boolean
-        +getPermissions(user: User): Set<Permission>
-        -validateUserPermissions(user: User, resource: Object, action: Action): Boolean
-        -validateResourceAccess(user: User, resource: Object): Boolean
-    }
-
-    UI --> System : uses >
-    System --> AccessControl : uses >
-}
+title UML Package Diagram
 
 package "Location" #pink {
     class LocationCatalog <<singleton>> {
-        -locations: Map<Integer, Location>
-        -AccessControl accessControl
+        locations: Map<Integer, Location>
+        accessControl: AccessControl
         -LocationCatalog() 
         +getInstance(): LocationCatalog
-        +addLocation(location: Location, user: User): void
+        addLocation(location: Location, user: User): void
         +getLocation(id: Integer, user: User): Location
-        +getLocationsByType(type: String, user: User): List<Location>
+        getLocationsByType(type: String, user: User): List<Location>
         +getBranches(user: User): List<Branch>
         +getProvinces(user: User): List<Province>
         +getCities(user: User): List<City>
@@ -45,51 +17,80 @@ package "Location" #pink {
     
     abstract class Location {
         +location_id: Integer <<PK>>
-        +name: String
-        +type: String
+        name: String
+        type: String
         +getFullPath(): String
-        +{abstract} validateChildren(): Boolean
+        #{abstract} validateChildren(): Boolean
     }
 
     class Province {
-        +getProvinceSpecificMethods()
-        +validateChildren(): Boolean
+        provinceSpecificMethods()
+        #validateChildren(): Boolean
     }
 
     class City {
-        +getCitySpecificMethods()
-        +validateChildren(): Boolean
-        +province_id <<FK>>
+        citySpecificMethods()
+        #validateChildren(): Boolean
+        province_id <<FK>>
     }
 
     class Branch {
-        +schedule_id: Integer <<FK>>
-        +getBranchSpecificMethods()
-        +validateChildren(): Boolean  
-        +city_id <<FK>>
+        schedule_id: Integer <<FK>>
+        branchSpecificMethods()
+        #validateChildren(): Boolean  
+        city_id <<FK>>
     }
 
     LocationCatalog o--[#red,bold] "0..*" Location : manages >
     Location <|--[#red,bold] Province
     Location <|--[#red,bold] City
     Location <|--[#red,bold] Branch
-    Location --> Location : parent
+    Location -[#red,bold]-> Location : parent
+}
+
+
+package "App" #lightgrey {
+    class UI {
+        system: System
+        displayPages()
+        +handleUserInput(input: Input)
+        showMessage(message: String)
+    }
+
+    class System <<singleton>> {
+        accessControl: AccessControl
+        -System() 
+        +getInstance(): System
+        +login(email: String, password: String): User
+        +register(userData: Map): User
+        systemMethods()
+    }
+
+    class AccessControl {
+        validateAccess(user: User, resource: Object, action: Action): Boolean
+        +getPermissions(user: User): Set<Permission>
+        validateUserPermissions(user: User, resource: Object, action: Action): Boolean
+        validateResourceAccess(user: User, resource: Object): Boolean
+    }
+
+    UI --> System : uses >
+    System --> AccessControl : uses >
 }
 
 package "Users" #lightyellow {
     class UserCatalog <<singleton>> {
-        -users: Map<Integer, User>
-        -accessControl: AccessControl
+        users: Map<Integer, User>
+        accessControl: AccessControl
         -UserCatalog() 
         +getInstance(): UserCatalog
-        +addUser(user: User, requestingUser: User): void
+        addUser(user: User, requestingUser: User): void
         +getUser(id: Integer, requestingUser: User): User
-        +getUsersByType(type: String, requestingUser: User): List<User>
+        getUsersByType(type: String, requestingUser: User): List<User>
     }
 
     abstract class User {
         +user_id: Integer <<PK>>
-        +type: String
+        type: String
         email: String
         hashed_password: String
         name: String
@@ -100,23 +101,23 @@ package "Users" #lightyellow {
 
     class Administrator {
         #getTypeSpecificPermissions(): Set<Permission>
-        +validateAccess(resource: Object, action: Action): Boolean
+        validateAccess(resource: Object, action: Action): Boolean
     }
 
     class Instructor {
         phone: String
         specialization: String
-        +schedule_id: Integer <<FK>>
+        schedule_id: Integer <<FK>>
         #getTypeSpecificPermissions(): Set<Permission>
-        +validateAccess(resource: Object, action: Action): Boolean
+        validateAccess(resource: Object, action: Action): Boolean
     }
 
     class Client {
-        +schedule_id: Integer <<FK>>
+        schedule_id: Integer <<FK>>
         age: Integer
-        +guardian_id: Integer,Null <<FK>>
+        guardian_id: Integer,Null <<FK>>
         #getTypeSpecificPermissions(): Set<Permission>
-        +validateAccess(resource: Object, action: Action): Boolean
+        validateAccess(resource: Object, action: Action): Boolean
     }
 
     UserCatalog o--[#orange,bold] "0..*" User : manages >
@@ -127,21 +128,21 @@ package "Users" #lightyellow {
 
 package "Scheduling" #lightblue {
     class ScheduleCatalog <<singleton>> {
-        -accessControl: AccessControl
+        accessControl: AccessControl
         -ScheduleCatalog() 
         +getInstance(): ScheduleCatalog
         +getSchedule(id: Integer, user: User): Schedule
-        +createSchedule(schedule: Schedule, user: User): void
+        createSchedule(schedule: Schedule, user: User): void
     }
 
     class Schedule {
         +schedule_id: Integer <<PK>>
-        +schedule_owner_id: Integer <<FK>> 
+        schedule_owner_id: Integer <<FK>> 
     }
 
     class TimeSlot <<weak>> {
         +{schedule_id, start_time} <<PK>>
-        +reserved_by_public_offering_id: Integer <<FK>>
+        reserved_by_public_offering_id: Integer, Null <<FK>>
         end_time: DateTime
         isReserved: Boolean
     }
@@ -152,16 +153,16 @@ package "Scheduling" #lightblue {
 
 package "Offerings" #lightgreen {
     class OfferingCatalog <<singleton>> {
-        -accessControl: AccessControl
+        accessControl: AccessControl
         -OfferingCatalog() 
         +getInstance(): OfferingCatalog
-        +createOffering(offering: Offering, user: User): void
+        createOffering(offering: Offering, user: User): void
         +getOffering(id: Integer, user: User): Offering
     }
 
     class Offering {
         +offering_id: Integer <<PK>>
-        +instructor_id: Integer <<FK>>
+        instructor_id: Integer <<FK>>
         lesson_type: String
         mode: String
         capacity: Integer
@@ -169,7 +170,7 @@ package "Offerings" #lightgreen {
 
     class PublicOffering <<weak>> {
         +{offering_id, instructor_id} <<PK>>
-        +schedule_id: Integer <<FK>>
+        schedule_id: Integer <<FK>>
     }
 
     OfferingCatalog o--[#green,bold] Offering
@@ -178,19 +179,19 @@ package "Offerings" #lightgreen {
 
 package "Bookings" #E6E6FA {
     class BookingCatalog <<singleton>> {
-        -accessControl: AccessControl
+        accessControl: AccessControl
         -BookingCatalog() 
         +getInstance(): BookingCatalog
-        +createBooking(booking: Booking, user: User): void
+        createBooking(booking: Booking, user: User): void
         +getBooking(id: Integer, user: User): Booking
         +getUserBookings(userId: Integer, user: User): List<Booking>
     }
 
     class Booking <<weak>> {
         +{booked_by_client_id,public_offering_id} <<PK>>
-        +booked_by_client_id: Integer <<FK>>
-        +booked_for_client_id: Integer <<FK>>
-        +public_offering_id: Integer <<FK>>
+        booked_by_client_id: Integer <<FK>>
+        booked_for_client_id: Integer <<FK>>
+        public_offering_id: Integer <<FK>>
     }
     
     BookingCatalog o--[#purple,bold] Booking
@@ -200,18 +201,17 @@ package "Bookings" #E6E6FA {
 Instructor "1" --[#orange,bold] "*" PublicOffering : teaches >
 Branch "1" --[#red,bold] "1" Schedule : has >
 Schedule "1" --[#blue,bold] "1" User : belongs to >
-PublicOffering "1" o-[#blue,bold]- "0..*" TimeSlot: reserves >
-Schedule "1" o--[#green,bold] "0..*" PublicOffering
+PublicOffering "1" -[#blue,bold]- "0..*" TimeSlot: reserves >
 
 ' Association Classes
 (Client, PublicOffering).. Booking
 
 ' System Associations
 System "1" -[#black,bold]-> "1" LocationCatalog : manages 
-System "1" --[#black,bold]-> "1" ScheduleCatalog : manages 
-System "1" --[#black,bold]-> "1" UserCatalog : manages 
-System "1" --[#black,bold]-> "1" OfferingCatalog : manages 
-System "1" --[#black,bold]-> "1" BookingCatalog : manages 
+System "1" -[#black,bold]-> "1" ScheduleCatalog : manages 
+System "1" -[#black,bold]-> "1" UserCatalog : manages 
+System "1" -[#black,bold]-> "1" OfferingCatalog : manages 
+System "1" -[#black,bold]-> "1" BookingCatalog : manages 
 
 note top of Users
 Shared permissions:
