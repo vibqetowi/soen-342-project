@@ -22,6 +22,6 @@ Below is an overview of the packages and how they relate to each other. You may 
 
 ## Relational Model
 
-Below is a relational model built from the UML diagram to provide persistence to the application. If it doesn't render, click this [link.](https://dbdiagram.io/d/342-project-671bc56d97a66db9a34ae6a3)
+Below is a relational model built from the UML diagram to provide persistence to the application. Below is a screenshot but browsing the interactive version is reccommended
 
-<iframe width="560" height="315" src='https://dbdiagram.io/e/671bc56d97a66db9a34ae6a3/6733d1c6e9daa85aca3a306c'> </iframe>
+![Relational-Model](System-Diagrams/Relational_Model.png)

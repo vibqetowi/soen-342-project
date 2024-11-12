@@ -41,6 +41,12 @@ package "Location" #pink {
         city_id <<FK>>
     }
 
+    class InstructorCityAvailability{
+        {instructor_id, city_id} <<PK>>
+        instructor_id: Integer <<FK>>
+        city_id: Integer <<FK>>
+    }
+
     LocationCatalog o--[#red,bold] "0..*" Location : manages >
     Location <|--[#red,bold] Province
     Location <|--[#red,bold] City
@@ -205,6 +211,7 @@ PublicOffering "1" -[#blue,bold]- "0..*" TimeSlot: reserves >
 
 ' Association Classes
 (Client, PublicOffering).. Booking
+(Instructor,City).. InstructorCityAvailability 
 
 ' System Associations
 System "1" -[#black,bold]-> "1" LocationCatalog : manages 
