@@ -130,6 +130,7 @@ package "Users" #lightyellow {
     User <|-[#orange,bold] Administrator
     User <|--[#orange,bold] Instructor
     User <|--[#orange,bold] Client
+    Client "*" -[#orange,bold]-> "1" Client: guardian of
 }
 
 package "Scheduling" #lightblue {
