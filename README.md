@@ -17,12 +17,12 @@ The UML Diagrams are written in PlantUML, both code and generated images are pre
 
 Below is an overview of the packages and how they relate to each other. You may notice the image changing between sprints, that is normal.
 
-![1729458777114](./UML-Diagrams/Package-Diagram.png)
+![1729458777114](./System-Diagrams/Package-Diagram.png)
 
 ## Relational Model
 
-Below is a relational model built from the UML diagram to provide persistence to the application. Below is a screenshot but browsing the interactive version is reccommended.
+Below is a relational model built from the UML diagram to provide persistence to the application. Github does not support embedding so please use the URL.
 
 [View Interactive Database Schema](https://dbdiagram.io/e/671bc56d97a66db9a34ae6a3/6733d1c6e9daa85aca3a306c)
 
-![Relational-Model](System-Diagrams/Relational_Model.png)
+
