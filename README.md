@@ -21,8 +21,9 @@ Below is an overview of the packages and how they relate to each other. You may 
 
 ## Relational Model
 
-Below is a relational model built from the UML diagram to provide persistence to the application. Github does not support embedding so please use the URL.
+Below is a relational model built with DBDiagram to provide persistence to the application. Github does not support embedding so please use the URL.
 
 [View Interactive Database Schema](https://dbdiagram.io/e/671bc56d97a66db9a34ae6a3/6733d1c6e9daa85aca3a306c)
 
-
+We provide a screenshot as a backup but do not at all guarantee the screenshot is up to date, plus it is missing interactive features. Please use the live version.
+![Relational-Model](System-Diagrams/Relational-Model-Possibly-Outdated.png)
