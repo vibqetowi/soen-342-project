@@ -99,18 +99,11 @@ CREATE TABLE "offering_catalog" (
   PRIMARY KEY ("offering_id", "entity_type")
 );
 
-CREATE TABLE "bookings" (
+CREATE TABLE "booking_catalog" (
   "booked_by_client_id" char(36),
   "public_offering_id" char(36),
   "booked_for_client_id" char(36),
   PRIMARY KEY ("booked_by_client_id", "public_offering_id")
-);
-
-CREATE TABLE "booking_catalog" (
-  "booking_by_client_id" char(36),
-  "booking_offering_id" char(36),
-  "entity_type" varchar,
-  PRIMARY KEY ("booking_by_client_id", "booking_offering_id")
 );
 
 CREATE INDEX ON "schedule_catalog" ("owner_type", "owner_id");
@@ -125,8 +118,6 @@ COMMENT ON TABLE "schedule_catalog" IS 'owner_type determines which table owner_
 ';
 
 COMMENT ON COLUMN "schedule_catalog"."owner_type" IS 'Can be either "USER" or "BRANCH"';
-
-COMMENT ON TABLE "booking_catalog" IS 'References composite primary key from bookings table';
 
 ALTER TABLE "cities" ADD FOREIGN KEY ("province_id") REFERENCES "provinces" ("location_id");
 
@@ -174,10 +165,8 @@ ALTER TABLE "instructor_city_availability" ADD FOREIGN KEY ("instructor_id") REF
 
 ALTER TABLE "instructor_city_availability" ADD FOREIGN KEY ("city_id") REFERENCES "cities" ("location_id");
 
-ALTER TABLE "bookings" ADD FOREIGN KEY ("booked_by_client_id") REFERENCES "clients" ("user_id");
+ALTER TABLE "booking_catalog" ADD FOREIGN KEY ("booked_by_client_id") REFERENCES "clients" ("user_id");
 
-ALTER TABLE "bookings" ADD FOREIGN KEY ("public_offering_id") REFERENCES "public_offerings" ("offering_id");
+ALTER TABLE "booking_catalog" ADD FOREIGN KEY ("public_offering_id") REFERENCES "public_offerings" ("offering_id");
 
-ALTER TABLE "bookings" ADD FOREIGN KEY ("booked_for_client_id") REFERENCES "clients" ("user_id");
-
-ALTER TABLE "bookings" ADD FOREIGN KEY ("booked_by_client_id", "public_offering_id") REFERENCES "booking_catalog" ("booking_by_client_id", "booking_offering_id");
+ALTER TABLE "booking_catalog" ADD FOREIGN KEY ("booked_for_client_id") REFERENCES "clients" ("user_id");
