@@ -1,182 +1,271 @@
-from Scheduling import ScheduleCatalog
-from System import generate_id
+import uuid
+import psycopg2
+from psycopg2.extras import DictCursor
+import json
+from pathlib import Path
+import logging
+from datetime import datetime
 from singleton_decorator import singleton
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+@singleton
+class DatabaseConnection:
+    def __init__(self):
+        self.conn_params = self._load_connection_params()
+    
+    def _load_connection_params(self):
+        secrets_path = Path(__file__).parent / '.secrets'
+        with open(secrets_path, 'r') as f:
+            return json.load(f)
+    
+    def get_connection(self):
+        return psycopg2.connect(**self.conn_params)
 
 @singleton
 class LocationCatalog:
-    _instance = None  # Class variable to hold the singleton instance
-
-    def __new__(cls, *args, **kwargs):
-        if not cls._instance:
-            cls._instance = super().__new__(cls)  # Create a new instance if it doesn't exist
-        return cls._instance
-
     def __init__(self):
-        if not hasattr(self, '_initialized'):  # Ensure __init__ is only called once
-            self._initialized = True
-            self._provinces = {}  # Internal storage for Province objects
-            self._provinces_by_name = {}  # Hashtable for Province names
-            self._cities = {}     # Internal storage for City objects
-            self._cities_by_name = {}  # Hashtable for City names
-            self._branches = {}   # Internal storage for Branch objects
-            self._branches_by_name = {}  # Hashtable for Branch names
+        self.db = DatabaseConnection()
 
-    def create_province(self, name):
-        """Create a new province and add it to the catalog."""
-        province_id = generate_id()
-        province = _Province(province_id, name)
-        self._provinces[province_id] = province
-        self._provinces_by_name[name] = province  # Store by name
-        return province
+    def create_province(self, name: str) -> 'Province':
+        """Create a new province in the database."""
+        try:
+            with self.db.get_connection() as conn:
+                with conn.cursor() as cur:
+                    location_id = str(uuid.uuid4())
+                    
+                    # Insert province
+                    cur.execute("""
+                        INSERT INTO provinces (location_id, name)
+                        VALUES (%s, %s)
+                        RETURNING location_id
+                    """, (location_id, name))
+                    
+                    # Create audit log
+                    cur.execute("""
+                        INSERT INTO audit_logs (
+                            log_id, timestamp, table_name, action_type, 
+                            target_table, record_id, new_value
+                        ) VALUES (%s, %s, 'provinces', 'INSERT', 'provinces', %s, %s::jsonb)
+                    """, (
+                        str(uuid.uuid4()),
+                        datetime.now(),
+                        location_id,
+                        json.dumps({'location_id': location_id, 'name': name})
+                    ))
+                    
+                    conn.commit()
+                    return Province(location_id, name)
+                    
+        except Exception as e:
+            logger.error(f"Error creating province: {e}")
+            raise
 
-    def get_province(self, province_id):
+    def get_province(self, location_id: str) -> 'Province':
         """Retrieve a province by its ID."""
-        return self._provinces.get(province_id)
+        try:
+            with self.db.get_connection() as conn:
+                with conn.cursor(cursor_factory=DictCursor) as cur:
+                    cur.execute("""
+                        SELECT location_id, name 
+                        FROM provinces 
+                        WHERE location_id = %s
+                    """, (location_id,))
+                    
+                    result = cur.fetchone()
+                    if result:
+                        return Province(result['location_id'], result['name'])
+                    return None
+                    
+        except Exception as e:
+            logger.error(f"Error retrieving province: {e}")
+            raise
 
-    def get_province_by_name(self, name):
+    def get_province_by_name(self, name: str) -> 'Province':
         """Retrieve a province by its name."""
-        return self._provinces_by_name.get(name)
+        try:
+            with self.db.get_connection() as conn:
+                with conn.cursor(cursor_factory=DictCursor) as cur:
+                    cur.execute("""
+                        SELECT location_id, name 
+                        FROM provinces 
+                        WHERE name = %s
+                    """, (name,))
+                    
+                    result = cur.fetchone()
+                    if result:
+                        return Province(result['location_id'], result['name'])
+                    return None
+                    
+        except Exception as e:
+            logger.error(f"Error retrieving province by name: {e}")
+            raise
 
-    def create_city(self, province_id, name):
-        """Create a new city and add it to the catalog."""
-        province = self.get_province(province_id)
-        if not province:
-            raise ValueError("Province not found.")
-        
-        city = province.create_city(name)
-        self._cities[city.city_id] = city
-        self._cities_by_name[name] = city  # Store by name
-        return city
-
-    def get_city(self, city_id):
+    def get_city(self, city_id: str) -> 'City':
         """Retrieve a city by its ID."""
-        return self._cities.get(city_id)
+        try:
+            with self.db.get_connection() as conn:
+                with conn.cursor(cursor_factory=DictCursor) as cur:
+                    cur.execute("""
+                        SELECT location_id, name, parent_location_id
+                        FROM cities 
+                        WHERE location_id = %s
+                    """, (city_id,))
+                    
+                    result = cur.fetchone()
+                    if result:
+                        return City(result['location_id'], result['name'], result['parent_location_id'])
+                    return None
+                    
+        except Exception as e:
+            logger.error(f"Error retrieving city: {e}")
+            raise
 
-    def get_city_by_name(self, name):
-        """Retrieve a city by its name."""
-        return self._cities_by_name.get(name)
-
-    def create_branch(self, city_id, name, schedule_catalog):
-        """Create a new branch and add it to the catalog."""
-        city = self.get_city(city_id)
-        if not city:
-            raise ValueError("City not found.")
-        
-        branch = city.create_branch(name, schedule_catalog)
-        self._branches[branch.branch_id] = branch
-        self._branches_by_name[name] = branch  # Store by name
-        return branch
-
-    def get_branch(self, branch_id):
+    def get_branch(self, branch_id: str) -> 'Branch':
         """Retrieve a branch by its ID."""
-        return self._branches.get(branch_id)
+        try:
+            with self.db.get_connection() as conn:
+                with conn.cursor(cursor_factory=DictCursor) as cur:
+                    cur.execute("""
+                        SELECT location_id, name, parent_location_id, schedule_id
+                        FROM branches 
+                        WHERE location_id = %s
+                    """, (branch_id,))
+                    
+                    result = cur.fetchone()
+                    if result:
+                        return Branch(
+                            result['location_id'], 
+                            result['name'], 
+                            result['parent_location_id'],
+                            result['schedule_id']
+                        )
+                    return None
+                    
+        except Exception as e:
+            logger.error(f"Error retrieving branch: {e}")
+            raise
 
-    def get_branch_by_name(self, name):
-        """Retrieve a branch by its name."""
-        return self._branches_by_name.get(name)
-
-
-class _Province:
-    """Private class representing a Province."""
-    def __init__(self, province_id, name):
-        self.province_id = province_id
+class Province:
+    def __init__(self, location_id: str, name: str):
+        self.location_id = location_id
         self.name = name
-        self._cities = {}  # Internal storage for City objects
-        self._cities_by_name = {}  # Hashtable for City names
+        self.db = DatabaseConnection()
 
-    def create_city(self, name):
-        """Create a new city and add it to the province."""
-        city_id = generate_id()
-        city = _City(city_id, name, self)
-        self._cities[city_id] = city
-        self._cities_by_name[name] = city  # Store by name
-        return city
+    def create_city(self, name: str) -> 'City':
+        """Create a new city in this province."""
+        try:
+            with self.db.get_connection() as conn:
+                with conn.cursor() as cur:
+                    location_id = str(uuid.uuid4())
+                    
+                    # Insert city
+                    cur.execute("""
+                        INSERT INTO cities (location_id, name, parent_location_id)
+                        VALUES (%s, %s, %s)
+                        RETURNING location_id
+                    """, (location_id, name, self.location_id))
+                    
+                    # Create audit log
+                    cur.execute("""
+                        INSERT INTO audit_logs (
+                            log_id, timestamp, table_name, action_type, 
+                            target_table, record_id, new_value
+                        ) VALUES (%s, %s, 'cities', 'INSERT', 'cities', %s, %s::jsonb)
+                    """, (
+                        str(uuid.uuid4()),
+                        datetime.now(),
+                        location_id,
+                        json.dumps({
+                            'location_id': location_id,
+                            'name': name,
+                            'parent_location_id': self.location_id
+                        })
+                    ))
+                    
+                    conn.commit()
+                    return City(location_id, name, self.location_id)
+                    
+        except Exception as e:
+            logger.error(f"Error creating city: {e}")
+            raise
 
-    def get_city(self, city_id):
-        """Retrieve a city by its ID."""
-        return self._cities.get(city_id)
-
-    def get_city_by_name(self, name):
-        """Retrieve a city by its name."""
-        return self._cities_by_name.get(name)
-
-
-class _City:
-    """Private class representing a City."""
-    def __init__(self, city_id, name, province):
-        self.city_id = city_id
+class City:
+    def __init__(self, location_id: str, name: str, parent_location_id: str):
+        self.location_id = location_id
         self.name = name
-        self.province = province
-        self._branches = {}  # Internal storage for Branch objects
-        self._branches_by_name = {}  # Hashtable for Branch names
+        self.parent_location_id = parent_location_id
+        self.db = DatabaseConnection()
 
-    def create_branch(self, name, schedule_catalog):
-        """Create a new branch and add it to the city."""
-        branch_id = generate_id()
-        branch = _Branch(branch_id, name, self, schedule_catalog)
-        self._branches[branch_id] = branch
-        self._branches_by_name[name] = branch  # Store by name
-        return branch
+    def create_branch(self, name: str, schedule_id: str) -> 'Branch':
+        """Create a new branch in this city."""
+        try:
+            with self.db.get_connection() as conn:
+                with conn.cursor() as cur:
+                    location_id = str(uuid.uuid4())
+                    
+                    # Insert branch
+                    cur.execute("""
+                        INSERT INTO branches (location_id, name, schedule_id, parent_location_id)
+                        VALUES (%s, %s, %s, %s)
+                        RETURNING location_id
+                    """, (location_id, name, schedule_id, self.location_id))
+                    
+                    # Create audit log
+                    cur.execute("""
+                        INSERT INTO audit_logs (
+                            log_id, timestamp, table_name, action_type, 
+                            target_table, record_id, new_value
+                        ) VALUES (%s, %s, 'branches', 'INSERT', 'branches', %s, %s::jsonb)
+                    """, (
+                        str(uuid.uuid4()),
+                        datetime.now(),
+                        location_id,
+                        json.dumps({
+                            'location_id': location_id,
+                            'name': name,
+                            'schedule_id': schedule_id,
+                            'parent_location_id': self.location_id
+                        })
+                    ))
+                    
+                    conn.commit()
+                    return Branch(location_id, name, self.location_id, schedule_id)
+                    
+        except Exception as e:
+            logger.error(f"Error creating branch: {e}")
+            raise
 
-    def get_branch(self, branch_id):
-        """Retrieve a branch by its ID."""
-        return self._branches.get(branch_id)
-
-    def get_branch_by_name(self, name):
-        """Retrieve a branch by its name."""
-        return self._branches_by_name.get(name)
-
-
-class _Branch:
-    """Private class representing a Branch."""
-    def __init__(self, branch_id, name, city, schedule_catalog):
-        self.branch_id = branch_id
+class Branch:
+    def __init__(self, location_id: str, name: str, parent_location_id: str, schedule_id: str):
+        self.location_id = location_id
         self.name = name
-        self.city = city
-        self.schedule = schedule_catalog.create_schedule(branch_id)
-
+        self.parent_location_id = parent_location_id
+        self.schedule_id = schedule_id
+        self.db = DatabaseConnection()
 
 if __name__ == "__main__":
-    # Initialize the location catalog as a singleton
-    catalog = LocationCatalog()
-
-    # Initialize the schedule catalog
-    schedule_catalog = ScheduleCatalog()  # Assuming ScheduleCatalog can be instantiated like this
-
-    # Define real provinces, cities, and branches
-    provinces = [
-        ("California", ["Los Angeles", "San Francisco", "San Diego"]),
-        ("Texas", ["Houston", "Dallas", "Austin"])
-    ]
-
-    # Create provinces and their respective cities and branches
-    for province_name, cities in provinces:
-        province = catalog.create_province(province_name)
-
-        for city_name in cities:
-            city = catalog.create_city(province.province_id, city_name)
-
-            # Create branches for each city
-            for branch_num in range(1, 5):  # Four branches
-                branch_name = f"{city.name} Branch {branch_num}"
-                branch = catalog.create_branch(city.city_id, branch_name, schedule_catalog)  
-
-    # Print all provinces, cities, and branches
-    print("\nAll Locations:")
-    for province in catalog._provinces.values():
-        print(f"Province: Name = {province.name}, ID = {province.province_id}")
-        for city in province._cities.values():
-            print(f"  City: Name = {city.name}, ID = {city.city_id}")
-            for branch in city._branches.values():
-                print(f"    Branch: Name = {branch.name}, ID = {branch.branch_id}")
-
-    # Find the ID of Austin
-    austin_city = catalog.get_city_by_name("Austin")
-    print(f"\nAustin City ID: {austin_city.city_id}")
-
-    # List branches in the Texas province
-    texas_province = catalog.get_province_by_name("Texas")
-    print("\nBranches in Texas Province:")
-    for city in texas_province._cities.values():
-        for branch in city._branches.values():
-            print(f"  Branch: Name = {branch.name}, ID = {branch.branch_id}")
+    # Example usage
+    try:
+        location_catalog = LocationCatalog()
+        
+        # Create a province
+        province = location_catalog.create_province("California")
+        logger.info(f"Created province: {province.name} with ID: {province.location_id}")
+        
+        # Create a city in the province
+        city = province.create_city("Los Angeles")
+        logger.info(f"Created city: {city.name} with ID: {city.location_id}")
+        
+        # Create a branch in the city (assuming we have a schedule_id)
+        schedule_id = str(uuid.uuid4())  # In real usage, this would come from ScheduleCatalog
+        branch = city.create_branch("Downtown LA Branch", schedule_id)
+        logger.info(f"Created branch: {branch.name} with ID: {branch.location_id}")
+        
+    except Exception as e:
+        logger.error(f"Error in main: {e}")

@@ -87,7 +87,7 @@ CREATE TABLE "offerings" (
 );
 
 CREATE TABLE "public_offerings" (
-  "offering_id" char(36),
+  "offering_id" char(36) PRIMARY KEY,
   "instructor_id" char(36),
   "schedule_id" char(36),
   "lesson_type" varchar,
@@ -123,138 +123,108 @@ CREATE TABLE "audit_logs" (
   "action_type" varchar,
   "target_table" varchar,
   "record_id" char(36),
-  "old_value" jsonb,
-  "new_value" jsonb,
-  "metadata" jsonb
+  "old_value" json,
+  "new_value" json,
+  "metadata" json
 );
 
--- Create index for schedules
 CREATE INDEX ON "schedules" ("record_id", "table_name");
 
--- Policy/Access Control cascades
-ALTER TABLE "user_permissions" 
-ADD CONSTRAINT "user_permissions_permission_id_fkey"
-FOREIGN KEY ("permission_id") 
-REFERENCES "permissions" ("permission_id") 
+ALTER TABLE "user_permissions"
+ADD FOREIGN KEY ("permission_id")
+REFERENCES "permissions" ("permission_id")
 ON DELETE CASCADE;
 
-ALTER TABLE "resource_permissions" 
-ADD CONSTRAINT "resource_permissions_permission_id_fkey"
-FOREIGN KEY ("permission_id") 
-REFERENCES "permissions" ("permission_id") 
+ALTER TABLE "resource_permissions"
+ADD FOREIGN KEY ("permission_id")
+REFERENCES "permissions" ("permission_id")
 ON DELETE CASCADE;
 
--- Location inheritance hierarchy cascades
-ALTER TABLE "cities" 
-ADD CONSTRAINT "cities_parent_location_id_fkey"
-FOREIGN KEY ("parent_location_id") 
-REFERENCES "provinces" ("location_id") 
+ALTER TABLE "cities"
+ADD FOREIGN KEY ("parent_location_id")
+REFERENCES "provinces" ("location_id")
 ON DELETE CASCADE;
 
-ALTER TABLE "branches" 
-ADD CONSTRAINT "branches_parent_location_id_fkey"
-FOREIGN KEY ("parent_location_id") 
-REFERENCES "cities" ("location_id") 
+ALTER TABLE "branches"
+ADD FOREIGN KEY ("parent_location_id")
+REFERENCES "cities" ("location_id")
 ON DELETE CASCADE;
 
--- Schedule references
-ALTER TABLE "branches" 
-ADD CONSTRAINT "branches_schedule_id_fkey"
-FOREIGN KEY ("schedule_id") 
-REFERENCES "schedules" ("schedule_id") 
+ALTER TABLE "schedules"
+ADD FOREIGN KEY ("schedule_id")
+REFERENCES "branches" ("schedule_id")
 ON DELETE CASCADE;
 
-ALTER TABLE "instructors" 
-ADD CONSTRAINT "instructors_schedule_id_fkey"
-FOREIGN KEY ("schedule_id") 
-REFERENCES "schedules" ("schedule_id") 
+ALTER TABLE "schedules"
+ADD FOREIGN KEY ("schedule_id")
+REFERENCES "instructors" ("schedule_id")
 ON DELETE CASCADE;
 
-ALTER TABLE "clients" 
-ADD CONSTRAINT "clients_schedule_id_fkey"
-FOREIGN KEY ("schedule_id") 
-REFERENCES "schedules" ("schedule_id") 
+ALTER TABLE "schedules"
+ADD FOREIGN KEY ("schedule_id")
+REFERENCES "clients" ("schedule_id")
 ON DELETE CASCADE;
 
--- Guardian-does not cascade
-ALTER TABLE "clients" 
-ADD CONSTRAINT "clients_guardian_id_fkey"
-FOREIGN KEY ("guardian_id") 
-REFERENCES "clients" ("user_id");
+ALTER TABLE "clients"
+ADD FOREIGN KEY ("user_id")
+REFERENCES "clients" ("guardian_id");
 
--- Time slots (weak entity) cascades
-ALTER TABLE "time_slots" 
-ADD CONSTRAINT "time_slots_schedule_id_fkey"
-FOREIGN KEY ("schedule_id") 
-REFERENCES "schedules" ("schedule_id") 
+ALTER TABLE "time_slots"
+ADD FOREIGN KEY ("schedule_id")
+REFERENCES "schedules" ("schedule_id")
 ON DELETE CASCADE;
 
-ALTER TABLE "time_slots" 
-ADD CONSTRAINT "time_slots_reserved_by_public_offering_id_fkey"
-FOREIGN KEY ("reserved_by_public_offering_id") 
-REFERENCES "public_offerings" ("offering_id") 
+ALTER TABLE "time_slots"
+ADD FOREIGN KEY ("reserved_by_public_offering_id")
+REFERENCES "public_offerings" ("offering_id")
 ON DELETE CASCADE;
 
--- Public offerings relationships
-ALTER TABLE "public_offerings" 
-ADD CONSTRAINT "public_offerings_offering_id_fkey"
-FOREIGN KEY ("offering_id") 
-REFERENCES "offerings" ("offering_id") 
+ALTER TABLE "offerings"
+ADD FOREIGN KEY ("offering_id")
+REFERENCES "public_offerings" ("offering_id")
 ON DELETE CASCADE;
 
-ALTER TABLE "public_offerings" 
-ADD CONSTRAINT "public_offerings_instructor_id_fkey"
-FOREIGN KEY ("instructor_id") 
-REFERENCES "instructors" ("user_id") 
+ALTER TABLE "public_offerings"
+ADD FOREIGN KEY ("instructor_id")
+REFERENCES "instructors" ("user_id")
 ON DELETE CASCADE;
 
-ALTER TABLE "public_offerings" 
-ADD CONSTRAINT "public_offerings_schedule_id_fkey"
-FOREIGN KEY ("schedule_id") 
-REFERENCES "schedules" ("schedule_id") 
+ALTER TABLE "schedules"
+ADD FOREIGN KEY ("schedule_id")
+REFERENCES "public_offerings" ("schedule_id")
 ON DELETE CASCADE;
 
--- Instructor-Branch availability (association class) cascades
-ALTER TABLE "instructor_branch_availability" 
-ADD CONSTRAINT "instructor_branch_availability_instructor_id_fkey"
-FOREIGN KEY ("instructor_id") 
-REFERENCES "instructors" ("user_id") 
+ALTER TABLE "instructor_branch_availability"
+ADD FOREIGN KEY ("instructor_id")
+REFERENCES "instructors" ("user_id")
 ON DELETE CASCADE;
 
-ALTER TABLE "instructor_branch_availability" 
-ADD CONSTRAINT "instructor_branch_availability_branch_id_fkey"
-FOREIGN KEY ("branch_id") 
-REFERENCES "branches" ("location_id") 
+ALTER TABLE "instructor_branch_availability"
+ADD FOREIGN KEY ("branch_id")
+REFERENCES "branches" ("location_id")
 ON DELETE CASCADE;
 
--- Offered in branch (association class) cascades
-ALTER TABLE "offered_in_branch" 
-ADD CONSTRAINT "offered_in_branch_offering_id_fkey"
-FOREIGN KEY ("offering_id") 
-REFERENCES "offerings" ("offering_id") 
+ALTER TABLE "offered_in_branch"
+ADD FOREIGN KEY ("offering_id")
+REFERENCES "offerings" ("offering_id")
 ON DELETE CASCADE;
 
-ALTER TABLE "offered_in_branch" 
-ADD CONSTRAINT "offered_in_branch_branch_id_fkey"
-FOREIGN KEY ("branch_id") 
-REFERENCES "branches" ("location_id") 
+ALTER TABLE "offered_in_branch"
+ADD FOREIGN KEY ("branch_id")
+REFERENCES "branches" ("location_id")
 ON DELETE CASCADE;
 
--- Bookings (association class) cascades
-ALTER TABLE "bookings" 
-ADD CONSTRAINT "bookings_booked_by_client_id_fkey"
-FOREIGN KEY ("booked_by_client_id") 
-REFERENCES "clients" ("user_id") 
+ALTER TABLE "bookings"
+ADD FOREIGN KEY ("booked_by_client_id")
+REFERENCES "clients" ("user_id")
 ON DELETE CASCADE;
 
-ALTER TABLE "bookings" 
-ADD CONSTRAINT "bookings_public_offering_id_fkey"
-FOREIGN KEY ("public_offering_id") 
-REFERENCES "public_offerings" ("offering_id") 
+ALTER TABLE "bookings"
+ADD FOREIGN KEY ("public_offering_id")
+REFERENCES "public_offerings" ("offering_id")
 ON DELETE CASCADE;
 
-ALTER TABLE "bookings" 
-ADD CONSTRAINT "bookings_booked_for_client_id_fkey"
-FOREIGN KEY ("booked_for_client_id") 
-REFERENCES "clients" ("user_id") 
+ALTER TABLE "bookings"
+ADD FOREIGN KEY ("booked_for_client_id")
+REFERENCES "clients" ("user_id")
 ON DELETE CASCADE;
