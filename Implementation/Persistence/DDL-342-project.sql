@@ -65,8 +65,8 @@ CREATE TABLE "clients" (
 
 CREATE TABLE "schedules" (
   "schedule_id" char(36) PRIMARY KEY,
-  "table_name" varchar,
-  "record_id" char(36)
+  "owner_type" varchar,
+  "owner_id" char(36)
 );
 
 CREATE TABLE "time_slots" (
@@ -128,7 +128,7 @@ CREATE TABLE "audit_logs" (
   "metadata" json
 );
 
-CREATE INDEX ON "schedules" ("record_id", "table_name");
+CREATE INDEX ON "schedules" ("owner_id", "owner_type");
 
 ALTER TABLE "user_permissions"
 ADD FOREIGN KEY ("permission_id")
@@ -177,6 +177,21 @@ ON DELETE CASCADE;
 ALTER TABLE "time_slots"
 ADD FOREIGN KEY ("reserved_by_public_offering_id")
 REFERENCES "public_offerings" ("offering_id")
+ON DELETE CASCADE;
+
+ALTER TABLE "instructors"
+ADD FOREIGN KEY ("schedule_id")
+REFERENCES "schedules" ("owner_id")
+ON DELETE CASCADE;
+
+ALTER TABLE "clients"
+ADD FOREIGN KEY ("schedule_id")
+REFERENCES "schedules" ("owner_id")
+ON DELETE CASCADE;
+
+ALTER TABLE "branches"
+ADD FOREIGN KEY ("schedule_id")
+REFERENCES "schedules" ("owner_id")
 ON DELETE CASCADE;
 
 ALTER TABLE "offerings"
