@@ -48,7 +48,7 @@ System -> System : hash(password)
 
 alt#LightBlue #LightBlue (stored_hashed_password == hashed_password)
     System --> Client : Confirm login
-else #LightCoral
+else #mistyrose
     System --> Client : Error (invalid credentials)
 end
 @enduml
@@ -73,7 +73,7 @@ System -> OfferingCatalog : find(search_query)
 OfferingCatalog --> System : return List<PublicOfferings>
 
 alt#LightBlue #LightBlue (List not empty)
-    loop #LightGreen do while Client selects to continue
+    loop #DFF5E4 do while Client selects to continue
         System --> Client : prompt to select Offering
         Client -> System : select(offering_id)
         System -> OfferingCatalog : find(offering_id)
@@ -81,7 +81,7 @@ alt#LightBlue #LightBlue (List not empty)
         System -> "PO:PublicOffering" : getCapacity()
         "PO:PublicOffering" --> System : return PO.capacity
 
-        alt#LightCoral #LightCoral (PO.capacity > 0)
+        alt#mistyrose #mistyrose (PO.capacity > 0)
             System -> "PO:PublicOffering" : getTimeslots()
             "PO:PublicOffering" --> System : return PO.Timeslots
             System -> ScheduleCatalog : find(client_id)
@@ -133,7 +133,7 @@ System -> "O:Offering" : getClientList()
 System -> "O:Offering" : O.clientList.remove(self.client_id)
 "O:Offering" --> System : Confirm removal
 
-loop #LightGreen For each client in O.clientList
+loop #DFF5E4 For each client in O.clientList
     System -> UserCatalog : find(client_id)
     UserCatalog --> System : return "C:Client"
     System -> "C:Client" : notifyCancellation()

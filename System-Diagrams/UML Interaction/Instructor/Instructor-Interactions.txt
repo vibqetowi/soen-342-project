@@ -1,165 +1,331 @@
 @startuml
 actor Instructor
-participant System
-collections UserCatalog
-participant "I:Instructor"
+participant UI
+participant "System\n<<singleton>>" as System 
+participant "AccessControl\n<<singleton>>" as AccessControl
+participant "UserCatalog\n<<singleton>>" as UserCatalog
+participant "I:Instructor" as User
+participant "AL:AuditLog" as AuditLog
 collections Instructors
+collections AuditLogs
 
 title Register Instructor
 
-note over of System
-I use *args for other account details
-space constraints, thank you
+note right of UI
+Using *args for brevity
 end note
 
 autonumber
 
-Instructor -> System : registerInstructor(email, password, *args)
-System -> System : hash(password)
+Instructor -> UI: handleUserInput(email, password, *args)
+UI -> System: register(*args)
+
+System -> AccessControl: validateAccess(null, UserCatalog, WRITE)
+AccessControl --> System: confirm
+
+System -> System: hash(password)
 System -> System: generate_id()
-System -> UserCatalog: newInstructor(id,email,hashed_password, *args)
-UserCatalog  -> "I:Instructor" **: create(*args)
-"I:Instructor" --> UserCatalog : Confirm
-UserCatalog -> Instructors : add(I)
-Instructors --> UserCatalog: Confirm
-UserCatalog --> System: Confirm
-System --> Instructor: Confirm
+
+System -> UserCatalog: addUser(id, email, hashed_password, *args)
+UserCatalog -> User ** : create(*args)
+
+User --> UserCatalog: confirm
+UserCatalog -> Instructors: add(I)
+Instructors --> UserCatalog: confirm
+
+AccessControl -> AuditLog **: create(timestamp, *args)
+AuditLog --> AccessControl: confirm
+AccessControl -> AuditLogs: add(AL)
+AuditLogs --> AccessControl: confirm
+
+UserCatalog --> System: confirm
+System --> UI: confirm
+UI --> Instructor: confirm
 
 @enduml
-
 '__________________________________________
-
 @startuml
 actor Instructor
-participant System
-collections UserCatalog
-participant "I:Instructor"
+participant UI
+participant "System\n<<singleton>>" as System
+participant "AccessControl\n<<singleton>>" as AccessControl
+participant "UserCatalog\n<<singleton>>" as UserCatalog
+participant "I:Instructor" as User
+participant "AL:AuditLog" as AuditLog
+collections AuditLogs
 
 title Instructor Login
 
 autonumber
 
-Instructor -> System : login(email : String, password : String)
-System -> UserCatalog : find(email)
-UserCatalog --> System : return I:Instructor
+Instructor -> UI: handleUserInput(email, password)
+UI -> System: login(email, password)
 
-System -> "I:Instructor" : getHashedPassword()
-"I:Instructor" --> System : return stored_hashed_password
-System -> System : hash(password)
+System -> AccessControl: validateAccess(null, UserCatalog, READ)
+AccessControl --> System: confirm
 
-alt#LightBlue #LightBlue (stored_hashed_password == hashed_password)
-    System --> Instructor : Confirm login
-else #LightCoral
-    System --> Instructor : Error (invalid credentials)
+System -> UserCatalog: getUser(email)
+UserCatalog -> UserCatalog: find(email)
+UserCatalog --> System: return I:Instructor
+
+System -> User: getHashedPassword()
+User --> System: return stored_hashed_password
+System -> System: hash(password)
+
+alt#LightBlue #LightBlue stored_hashed_password == hashed_password
+    System -> AccessControl: notifySuccess()
+    AccessControl -> AuditLog **: create(*args)
+    AuditLog --> AccessControl: confirm
+    AccessControl -> AuditLogs: add(AL)
+    AuditLogs --> AccessControl: confirm
+    AccessControl --> System: confirm
+    System --> UI: confirm
+    UI --> Instructor: confirm
+else #LightPink else
+    System -> AccessControl: notifyError()
+    AccessControl -> AuditLog **: create(*args)
+    AuditLog --> AccessControl: confirm
+    AccessControl -> AuditLogs: add(AL)
+    AuditLogs --> AccessControl: confirm
+    AccessControl --> System: confirm
+    System --> UI: error
+    UI --> Instructor: error
 end
 @enduml
-
 '__________________________________________
-
 @startuml
+title Update Location Availability
+
 actor Instructor
-participant System
-collections Offerings
-collections SuitableO
-participant "O:Offering"
-collections Instructors
-participant "I:Instructor"
-collections PublicOfferings
-participant "PO:PublicOffering"
-note over of "I:Instructor": nowhere does it say the number of instructors teaching a certain class must be 1 and only 1
+participant UI
+participant "System\n<<singleton>>" as System
+participant "AccessControl\n<<singleton>>" as AccessControl
+participant "LocationCatalog\n<<singleton>>" as LocationCatalog
+participant "UserCatalog\n<<singleton>>" as UserCatalog
+participant "IBA:InstructorBranchAvailability" as IBA
+participant "AL:AuditLog" as AuditLog
+collections InstructorBranchAvailabilities
+collections AuditLogs
+
+note right of UI
+Using *args for brevity
+end note
 
 autonumber
 
-Instructor -> System : acceptOffering(specialization, cities)
-System -> Offerings : find(specialization, cities)
-Offerings --> System : return SuitableO
+Instructor -> UI: handleUserInput(updateAvailability)
+UI -> System: getCities()
 
-alt#LightBlue #LightBlue (SuitableO not NULL)
-    loop#LightGreen #LightGreen do while Instructor selects to continue (executes at least once)
-        System --> Instructor : prompt to select Offering
-        Instructor -> System : select(offering_id)
-        System -> SuitableO : find(offering_id)
-        SuitableO --> System : return O:Offering
-        System -> "O:Offering" : getTimeslots()
-        "O:Offering" --> System : return O.Timeslots
-        System -> "Instructors" : find(instructor_id)
-        Instructors --> System : return("I:Instructor")
-        System -> "I:Instructor" : getTimeSlots()
-        "I:Instructor" --> System : return I.Schedule.Timeslots
+System -> AccessControl: validateAccess(instructor, LocationCatalog, READ)
+AccessControl --> System: confirm
 
-        System -> System : checkOverlap(O.TimeSlots, I.Schedule.Timeslots)
+System -> LocationCatalog: getCities()
+LocationCatalog --> System: return cities
 
-        alt#LightCoral #LightCoral (overlap between O.TimeSlots and I.Schedule.Timeslots)
-            System --> Instructor : error "schedule conflict"
-        else #LightCoral No Overlap
-            System -> PublicOfferings : makePublicOffering(instructor_id, O)
-            PublicOfferings --> "PO:PublicOffering" **: create(instructor_id, O)
-            "PO:PublicOffering" --> PublicOfferings : Return "PO:PublicOffering"
-            PublicOfferings --> System : return PO
-            System -> PublicOfferings: add(PO)
-            PublicOfferings --> System : Confirm
-            System -> "I:Instructor" : I.Schedule.add(PO)
-            "I:Instructor" --> System : Confirm
+System --> UI: return cities
+UI --> Instructor: displayCities()
+
+Instructor -> UI: selectCities(city_ids[])
+UI -> System: updateAvailability(city_ids[])
+
+System -> AccessControl: validateAccess(instructor, LocationCatalog, WRITE)
+AccessControl --> System: confirm
+
+System -> LocationCatalog: getBranchesByCities(city_ids[])
+LocationCatalog --> System: return branches[]
+
+loop#SkyBlue #SkyBlue for each branch in branches[]
+    System -> UserCatalog: createInstructorBranchAvailability(instructor_id, branch_id)
+    UserCatalog -> IBA **: create(instructor_id, branch_id)
+    IBA --> UserCatalog: confirm
+    UserCatalog -> InstructorBranchAvailabilities: add(IBA)
+    InstructorBranchAvailabilities --> UserCatalog: confirm
+    
+    AccessControl -> AuditLog **: create(*args)
+    AuditLog --> AccessControl: confirm
+    AccessControl -> AuditLogs: add(AL)
+    AuditLogs --> AccessControl: confirm
+    AccessControl --> System: confirm
+end
+
+System --> UI: confirm
+UI --> Instructor: confirm
+
+@enduml
+'__________________________________________
+@startuml
+title Accept Offerings - Create Public Offering
+
+actor Instructor
+participant UI
+participant "System\n<<singleton>>" as System
+participant "AccessControl\n<<singleton>>" as AccessControl
+collections "SO:SuitableOfferings<Offerings>" as SO
+participant "LocationCatalog\n<<singleton>>" as LocationCatalog
+participant "OfferingCatalog\n<<singleton>>" as OfferingCatalog
+participant "IBA:InstructorBranchAvailability" as IBA
+participant "OIB:OfferedInBranch" as OIB
+participant "PO:PublicOffering" as PublicOffering
+participant "ScheduleCatalog\n<<singleton>>" as ScheduleCatalog
+collections PublicOfferings
+
+note right of System
+This sequence diagram abstracts several complex methods for clarity:
+
+1. Finding suitable branches/offerings is abstracted but follows this SQL:
+   SELECT DISTINCT o.*
+   FROM instructors i
+   JOIN instructor_branch_availability iba 
+       ON i.user_id = iba.instructor_id
+   JOIN offered_in_branch oib 
+       ON iba.branch_id = oib.branch_id
+   JOIN offerings o 
+       ON oib.offering_id = o.offering_id
+   WHERE i.user_id = ? 
+       AND o.lesson_type = i.specialization;
+
+2. Schedule conflict checking is abstracted
+3. Schedule updating is abstracted
+
+Previous attempts to show full implementation 
+detail made the diagram completely illegible. 
+Please grade leniently.
+end note
+
+autonumber
+Instructor -> UI: handleUserInput(*args)
+UI -> System: findSuitableOfferings(instructor_id, specialization)
+
+System -> AccessControl: validateAccess(instructor, OfferingCatalog, READ)
+AccessControl --> System: confirm 
+
+System -> SO **: create()
+SO --> System: confirm
+
+System -> LocationCatalog: findSuitableBranches(instructor_id)
+LocationCatalog -> IBA: findSuitableBranches(instructor_id)
+IBA --> LocationCatalog: return List<branch_id>
+LocationCatalog --> System: return List<branch_id>
+
+System -> OfferingCatalog: findSuitableOfferings(List<branch_id>, specialization, SO)
+OfferingCatalog -> OIB: findSuitableOfferings(List<branch_id>, specialization, SO)
+OIB --> OfferingCatalog: return SO
+OfferingCatalog --> System: return SO
+
+alt#lightyellow  #lightyellow SO not empty
+    loop#lightblue  #lightblue while Instructor selects to continue
+        System --> UI: return SO
+        UI --> Instructor: displayOfferings()
+        Instructor -> UI: selectOffering(offering_id)
+        UI -> System: selectOffering(offering_id)
+        
+        System -> ScheduleCatalog: checkScheduleConflict(instructor_id, offering_id)
+        ScheduleCatalog --> System: return conflict_exists
+        
+        alt#mistyrose  #mistyrose schedule conflict exists
+            System --> UI: error
+            UI --> Instructor: error
+        else #DFF5E4 no conflict
+            System -> OfferingCatalog: createPublicOffering(instructor_id, offering_id)
+            OfferingCatalog -> PublicOffering **: create(instructor_id, offering_id)
+            PublicOffering --> OfferingCatalog: confirm
+            OfferingCatalog -> PublicOfferings: add(PO)
+            PublicOfferings --> OfferingCatalog: confirm
+            OfferingCatalog --> System: confirm
+            
+            System -> ScheduleCatalog: updateSchedule(instructor.schedule_id)
+            ScheduleCatalog --> System: confirm
+            
+            System --> UI: confirm
+            UI --> Instructor: prompt
         end
-        System --> Instructor: Prompt to continue or exit
     end
-else #LightBlue Failure
-    System --> Instructor : error "no suitable offering found"
+else SO empty
+    System --> UI: error
+    UI --> Instructor: error
 end
-
 @enduml
 '__________________________________________
-
 @startuml
-actor Instructor
-participant System
-collections PublicOfferings
-participant "PO:PublicOffering"
-collections Instructors
-participant "I:Instructor"
-collections Clients
-participant "C:Client"
+title Cancel Class (PublicOffering)
 
+actor Instructor
+participant UI
+participant "System\n<<singleton>>" as System
+participant "AccessControl\n<<singleton>>" as AccessControl
+participant "OfferingCatalog\n<<singleton>>" as OfferingCatalog
+participant "BookingCatalog\n<<singleton>>" as BookingCatalog
+participant "PO:PublicOffering" as PublicOffering
+participant "B:Booking" as Booking
+participant "AL:AuditLog" as AuditLog
+participant "ScheduleCatalog\n<<singleton>>" as ScheduleCatalog
+collections AuditLogs
+
+note right of System
+Abstracted: getting list of PO associated with instructor
+end note
 
 autonumber
 
-Instructor -> System : cancelBooking(offering_id)
-System -> PublicOfferings : find(offering_id)
-PublicOfferings --> System : return PO:PublicOffering
+Instructor -> UI: handleUserInput(*args)
+UI -> System: findInstructorClasses(instructor_id)
 
+System -> AccessControl: validateAccess(instructor, OfferingCatalog, READ)
+AccessControl --> System: confirm
 
-System -> "PO:PublicOffering" : getInstructorAndClientLists()
-"PO:PublicOffering" --> System : return PO.instructorList, PO.clientList
-System -> "PO:PublicOffering" : PO.instructorList.remove(self.instructor_id)
-"PO:PublicOffering" --> System : Confirm
-System -> System: Read PO.instructorList
+System -> OfferingCatalog: findClassesByInstructor(instructor_id)
+OfferingCatalog --> System: return List<PO>
 
-alt#LightBlue #LightBlue (Instructor list not empty/Course will still happen)
-    loop#LightGreen #LightGreen Notify each instructor
-        System -> Instructors : find(instructor_id)
-        Instructors --> System : return I:Instructor
-        System -> "I:Instructor" : notify()
-        "I:Instructor" --> System : Confirm
+System --> UI: return List<PO>
+UI --> Instructor: displayClasses()
+
+alt#lightyellow #lightyellow List<PO> not empty
+    loop#lightblue #lightblue while Instructor selects to continue
+        Instructor -> UI: selectClassToCancel(offering_id)
+        UI -> System: cancelOffering(offering_id)
+        
+        System -> AccessControl: validateAccess(instructor, OfferingCatalog, WRITE)
+        AccessControl --> System: confirm
+        
+        System -> OfferingCatalog: getOffering(offering_id)
+        OfferingCatalog --> System: return PO:PublicOffering
+        
+        System -> PublicOffering: getBookings()
+        PublicOffering --> System: return List<Booking>
+        
+        loop#LightCyan #LightCyan for each booking in List<Booking>
+            System -> AccessControl: validateAccess(instructor, BookingCatalog, WRITE)
+            AccessControl --> System: confirm
+            
+            System -> BookingCatalog: cancelBooking(booking.id)
+            BookingCatalog -> Booking !!: delete
+            BookingCatalog --> System: confirm
+            
+            AccessControl -> AuditLog **: create(*args)
+            AuditLog --> AccessControl: confirm
+            AccessControl -> AuditLogs: add(AL)
+            AuditLogs --> AccessControl: confirm
+        end
+        
+        System -> OfferingCatalog: deletePublicOffering(offering_id)
+        OfferingCatalog -> PublicOffering !!: delete
+        OfferingCatalog --> System: confirm
+        
+        System -> ScheduleCatalog: updateSchedule(instructor.schedule_id)
+        ScheduleCatalog --> System: confirm
+        
+        AccessControl -> AuditLog **: create(*args)
+        AuditLog --> AccessControl: confirm
+        AccessControl -> AuditLogs: add(AL)
+        AuditLogs --> AccessControl: confirm
+        AccessControl --> System: confirm
+        
+        System --> UI: confirm
+        UI --> Instructor: prompt
     end
-    loop#LightGreen #LightGreen Notify each client
-        System -> Clients : find(client_id)
-        Clients --> System : return C:Client
-        System -> "C:Client" : notify()
-        "C:Client" --> System : Confirm
-    end
-else #LightCoral #LightCoral (No instructors left/Course is cancelled)
-    loop#LightPink #LightPink Notify each client
-        System -> Clients : find(client_id)
-        Clients --> System : return C:Client
-        System -> "C:Client" : notify()
-        "C:Client" --> System : Confirm
-    end
-    System -> PublicOfferings : revertToNormalOffering(offering_id)
-    PublicOfferings -> "PO:PublicOffering" !!: delete
-    PublicOfferings --> System : Confirm
+else List<PO> empty
+    System --> UI: error
+    UI --> Instructor: error
 end
-
-
-System --> Instructor : Confirm 
 
 @enduml

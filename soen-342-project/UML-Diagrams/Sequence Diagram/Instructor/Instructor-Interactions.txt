@@ -49,7 +49,7 @@ System -> System : hash(password)
 
 alt#LightBlue #LightBlue (stored_hashed_password == hashed_password)
     System --> Instructor : Confirm login
-else #LightCoral
+else #mistyrose
     System --> Instructor : Error (invalid credentials)
 end
 @enduml
@@ -75,7 +75,7 @@ System -> Offerings : find(specialization, cities)
 Offerings --> System : return SuitableO
 
 alt#LightBlue #LightBlue (SuitableO not NULL)
-    loop#LightGreen #LightGreen do while Instructor selects to continue (executes at least once)
+    loop#DFF5E4 #DFF5E4 do while Instructor selects to continue (executes at least once)
         System --> Instructor : prompt to select Offering
         Instructor -> System : select(offering_id)
         System -> SuitableO : find(offering_id)
@@ -89,9 +89,9 @@ alt#LightBlue #LightBlue (SuitableO not NULL)
 
         System -> System : checkOverlap(O.TimeSlots, I.Schedule.Timeslots)
 
-        alt#LightCoral #LightCoral (overlap between O.TimeSlots and I.Schedule.Timeslots)
+        alt#mistyrose #mistyrose (overlap between O.TimeSlots and I.Schedule.Timeslots)
             System --> Instructor : error "schedule conflict"
-        else #LightCoral No Overlap
+        else #mistyrose No Overlap
             System -> PublicOfferings : makePublicOffering(instructor_id, O)
             PublicOfferings --> "PO:PublicOffering" **: create(instructor_id, O)
             "PO:PublicOffering" --> PublicOfferings : Return "PO:PublicOffering"
@@ -135,19 +135,19 @@ System -> "PO:PublicOffering" : PO.instructorList.remove(self.instructor_id)
 System -> System: Read PO.instructorList
 
 alt#LightBlue #LightBlue (Instructor list not empty/Course will still happen)
-    loop#LightGreen #LightGreen Notify each instructor
+    loop#DFF5E4 #DFF5E4 Notify each instructor
         System -> Instructors : find(instructor_id)
         Instructors --> System : return I:Instructor
         System -> "I:Instructor" : notify()
         "I:Instructor" --> System : Confirm
     end
-    loop#LightGreen #LightGreen Notify each client
+    loop#DFF5E4 #DFF5E4 Notify each client
         System -> Clients : find(client_id)
         Clients --> System : return C:Client
         System -> "C:Client" : notify()
         "C:Client" --> System : Confirm
     end
-else #LightCoral #LightCoral (No instructors left/Course is cancelled)
+else #mistyrose #mistyrose (No instructors left/Course is cancelled)
     loop#LightPink #LightPink Notify each client
         System -> Clients : find(client_id)
         Clients --> System : return C:Client

@@ -93,7 +93,7 @@ package "Scheduling" #lightblue {
     Schedule "1" *--[#blue,bold] "0..*" TimeSlot
 }
 
-package "Offerings" #lightgreen {
+package "Offerings" #E8F5E9 {
     class OfferingCatalog <<singleton>> {
         - {static} _instance : OfferingCatalog
         - _initialized : Boolean

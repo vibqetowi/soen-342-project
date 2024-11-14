@@ -1,153 +1,233 @@
 @startuml
 actor Client
-participant System
-collections UserCatalog
-participant "C:Client"
+participant UI
+participant "System\n<<singleton>>" as System 
+participant "AccessControl\n<<singleton>>" as AccessControl
+participant "UserCatalog\n<<singleton>>" as UserCatalog
+participant "C:Client" as User
+participant "AL:AuditLog" as AuditLog
 collections Clients
+collections AuditLogs
 
 title Register Client
 
-note over of System
-I use *args for other account details
-space constraints, thank you
+note right of UI
+Using *args for brevity
 end note
 
 autonumber
 
-Client -> System : registerClient(email, password, *args)
-System -> System : hash(password)
+Client -> UI: handleUserInput(email, password, *args)
+UI -> System: register(*args)
+
+System -> AccessControl: validateAccess(null, UserCatalog, WRITE)
+AccessControl --> System: confirm
+
+System -> System: hash(password)
 System -> System: generate_id()
-System -> UserCatalog: newClient(id,email,hashed_password, *args)
-UserCatalog  -> "C:Client" **: create(*args)
-"C:Client" --> UserCatalog : Confirm
-UserCatalog -> Clients : add(C)
-Clients --> UserCatalog: Confirm
-UserCatalog --> System: Confirm
-System --> Client: Confirm
+
+System -> UserCatalog: addUser(id, email, hashed_password, *args)
+UserCatalog -> User ** : create(*args)
+
+User --> UserCatalog: confirm
+UserCatalog -> Clients: add(C)
+Clients --> UserCatalog: confirm
+
+AccessControl -> AuditLog **: create(timestamp, *args)
+AuditLog --> AccessControl: confirm
+AccessControl -> AuditLogs: add(AL)
+AuditLogs --> AccessControl: confirm
+
+UserCatalog --> System: confirm
+System --> UI: confirm
+UI --> Client: confirm
 
 @enduml
 '__________________________________________
 
 @startuml
 actor Client
-participant System
-collections UserCatalog
-participant "C:Client"
+participant UI
+participant "System\n<<singleton>>" as System
+participant "AccessControl\n<<singleton>>" as AccessControl
+participant "UserCatalog\n<<singleton>>" as UserCatalog
+participant "C:Client" as User
+participant "AL:AuditLog" as AuditLog
+collections AuditLogs
 
 title Client Login
 
 autonumber
 
-Client -> System : login(email : String, password : String)
-System -> UserCatalog : find(email)
-UserCatalog --> System : return C:Client
+Client -> UI: handleUserInput(email, password)
+UI -> System: login(email, password)
 
-System -> "C:Client" : getHashedPassword()
-"C:Client" --> System : return stored_hashed_password
-System -> System : hash(password)
+System -> AccessControl: validateAccess(null, UserCatalog, READ)
+AccessControl --> System: confirm
 
-alt#LightBlue #LightBlue (stored_hashed_password == hashed_password)
-    System --> Client : Confirm login
-else #LightCoral
-    System --> Client : Error (invalid credentials)
+System -> UserCatalog: getUser(email)
+UserCatalog -> UserCatalog: find(email)
+UserCatalog --> System: return C:Client
+
+System -> User: getHashedPassword()
+User --> System: return stored_hashed_password
+System -> System: hash(password)
+
+alt#LightBlue #LightBlue stored_hashed_password == hashed_password
+    System -> AccessControl: notifySuccess()
+    AccessControl -> AuditLog **: create(*args)
+    AuditLog --> AccessControl: confirm
+    AccessControl -> AuditLogs: add(AL)
+    AuditLogs --> AccessControl: confirm
+    AccessControl --> System: confirm
+    System --> UI: confirm
+    UI --> Client: confirm
+else #LightPink else
+    System -> AccessControl: notifyError()
+    AccessControl -> AuditLog **: create(*args)
+    AuditLog --> AccessControl: confirm
+    AccessControl -> AuditLogs: add(AL)
+    AuditLogs --> AccessControl: confirm
+    AccessControl --> System: confirm
+    System --> UI: error
+    UI --> Client: error
 end
 @enduml
-
 '__________________________________________
+
 @startuml
-actor Client
-participant System
-collections OfferingCatalog
-participant "PO:PublicOffering"
-collections ScheduleCatalog
-participant "S:Schedule"
-collections BookingCatalog
-participant "B:Booking"
-
-autonumber
-
 title Client Make Booking
 
-Client -> System : makeBooking(search_query)
-System -> OfferingCatalog : find(search_query)
-OfferingCatalog --> System : return List<PublicOfferings>
+actor Client
+participant UI
+participant "System\n<<singleton>>" as System
+participant "AccessControl\n<<singleton>>" as AccessControl
+participant "OfferingCatalog\n<<singleton>>" as OfferingCatalog
+participant "ScheduleCatalog\n<<singleton>>" as ScheduleCatalog
+participant "BookingCatalog\n<<singleton>>" as BookingCatalog
+participant "PO:PublicOffering" as PublicOffering
+participant "S:Schedule" as Schedule
+participant "B:Booking" as Booking
+participant "AL:AuditLog" as AuditLog
+collections BookingLogs
+collections AuditLogs
 
-alt#LightBlue #LightBlue (List not empty)
-    loop #LightGreen do while Client selects to continue
-        System --> Client : prompt to select Offering
-        Client -> System : select(offering_id)
-        System -> OfferingCatalog : find(offering_id)
-        OfferingCatalog --> System : return PO:PublicOffering
-        System -> "PO:PublicOffering" : getCapacity()
-        "PO:PublicOffering" --> System : return PO.capacity
+autonumber
 
-        alt#LightCoral #LightCoral (PO.capacity > 0)
-            System -> "PO:PublicOffering" : getTimeslots()
-            "PO:PublicOffering" --> System : return PO.Timeslots
-            System -> ScheduleCatalog : find(client_id)
-            ScheduleCatalog --> System : return "S:Schedule"
-            System -> "S:Schedule" : getTimeSlots()
-            "S:Schedule" --> System : return "S.TimeSlots"
-            System -> System : checkOverlap(PO.TimeSlots, S.TimeSlots)
+Client -> UI: handleUserInput(search_query)
+UI -> System: makeBooking(search_query)
 
-            alt#LightYellow #LightYellow (overlap between PO.TimeSlots and S.TimeSlots)
-                System --> Client : error "schedule conflict"
-            else No Overlap
-                System -> BookingCatalog : createBooking(PO, S)
-                BookingCatalog -> "B:Booking" **: create()
-                "B:Booking" --> BookingCatalog: Confirm
-                BookingCatalog --> System : Confirm
-                System --> "S:Schedule" : add(PO)
-                "S:Schedule" --> System : Confirm
+System -> AccessControl: validateAccess(client, OfferingCatalog, READ)
+AccessControl --> System: confirm
+
+System -> OfferingCatalog: findOfferings(search_query)
+OfferingCatalog --> System: return List<PublicOfferings>
+
+alt#LightBlue #LightBlue List not empty
+    loop #DFF5E4 while Client selects to continue
+        System --> UI: return offerings
+        UI --> Client: displayOfferings()
+        Client -> UI: selectOffering(offering_id)
+        UI -> System: selectOffering(offering_id)
+        
+        System -> OfferingCatalog: getOffering(offering_id)
+        OfferingCatalog --> System: return PO:PublicOffering
+        System -> PublicOffering: getCapacity()
+        PublicOffering --> System: return capacity
+
+        alt#mistyrose #mistyrose capacity > 0
+            System -> PublicOffering: getTimeslots()
+            PublicOffering --> System: return timeslots
+            System -> ScheduleCatalog: getClientSchedule(client_id)
+            ScheduleCatalog --> System: return S:Schedule
+            System -> Schedule: getTimeSlots()
+            Schedule --> System: return timeSlots
+            System -> System: checkOverlap(timeslots, timeSlots)
+
+            alt#LightYellow #LightYellow schedule conflict exists
+                System --> UI: error
+                UI --> Client: error "schedule conflict"
+            else no conflict
+                System -> AccessControl: validateAccess(client, BookingCatalog, WRITE)
+                AccessControl --> System: confirm
+                
+                System -> BookingCatalog: createBooking(client_id, offering_id)
+                BookingCatalog -> Booking **: create(client_id, offering_id)
+                Booking --> BookingCatalog: confirm
+                BookingCatalog -> BookingLogs: add(B)
+                BookingLogs --> BookingCatalog: confirm
+                
+                System -> Schedule: addBooking(B)
+                Schedule --> System: confirm
+                
+                AccessControl -> AuditLog **: create(*args)
+                AuditLog --> AccessControl: confirm
+                AccessControl -> AuditLogs: add(AL)
+                AuditLogs --> AccessControl: confirm
+                
+                System --> UI: confirm
+                UI --> Client: displayBookingConfirmation()
             end
         else
-            System --> Client : error "all offerings full"
+            System --> UI: error
+            UI --> Client: error "offering full"
         end
-        System --> Client: Prompt to continue or exit
+        System --> UI: prompt
+        UI --> Client: promptContinue()
     end
 else
-    System --> Client : error "no offering found"
+    System --> UI: error
+    UI --> Client: error "no offerings found"
 end
-System -> Client: Confirm
+
 @enduml
 '__________________________________________
 
 @startuml
+title Cancel Booking
+
 actor Client
-participant System
-collections OfferingCatalog
-participant "O:Offering"
-collections UserCatalog
-participant "C:Client"
+participant UI
+participant "System\n<<singleton>>" as System
+participant "AccessControl\n<<singleton>>" as AccessControl
+participant "BookingCatalog\n<<singleton>>" as BookingCatalog
+participant "ScheduleCatalog\n<<singleton>>" as ScheduleCatalog
+participant "B:Booking" as Booking
+participant "S:Schedule" as Schedule
+participant "AL:AuditLog" as AuditLog
+collections AuditLogs
 
 autonumber
 
-Client -> System : cancelBooking(offering_id)
+note right of System
+Abstracted: Updating client schedule
+end note
 
-System -> OfferingCatalog : find(offering_id)
-OfferingCatalog --> System : return O:Offering
+Client -> UI: handleUserInput(booking_id)
+UI -> System: cancelBooking(booking_id)
 
-System -> "O:Offering" : getClientList()
-"O:Offering" --> System : return O.clientList
+System -> AccessControl: validateAccess(client, BookingCatalog, WRITE)
+AccessControl --> System: confirm
 
-System -> "O:Offering" : O.clientList.remove(self.client_id)
-"O:Offering" --> System : Confirm removal
+System -> BookingCatalog: getBooking(booking_id)
+BookingCatalog --> System: return B:Booking
 
-loop #LightGreen For each client in O.clientList
-    System -> UserCatalog : find(client_id)
-    UserCatalog --> System : return "C:Client"
-    System -> "C:Client" : notifyCancellation()
-    "C:Client" --> System : Confirm
-end
+System -> ScheduleCatalog: getClientSchedule(client_id)
+ScheduleCatalog --> System: return S:Schedule
 
-System -> "O:Offering" : adjustCapacity()
-"O:Offering" --> System : Confirm
+System -> Schedule: update()
+Schedule --> System: confirm
 
-System -> UserCatalog : find(client_id)
-UserCatalog --> System : return "C:Client"
-System -> "C:Client" : C.Schedule.remove(O)
-"C:Client" --> System : Confirm
+System -> BookingCatalog: deleteBooking(booking_id)
+BookingCatalog -> Booking !!: delete
+BookingCatalog --> System: confirm
 
-System --> Client : Confirm 
+AccessControl -> AuditLog **: create(*args)
+AuditLog --> AccessControl: confirm
+AccessControl -> AuditLogs: add(AL)
+AuditLogs --> AccessControl: confirm
+
+System --> UI: confirm
+UI --> Client: displayCancellationConfirmation()
 
 @enduml

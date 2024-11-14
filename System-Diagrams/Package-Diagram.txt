@@ -1,218 +1,340 @@
 @startuml
 title UML Package Diagram
 
+package Policy #DFF5E4 {
+    class Permission {
+        +permission_id: UUID <<PK>>
+        +name: String <<unique>>
+        +action_type: String
+        +getAllowedActions(): Set<String>
+        +isValidFor(resource: Object): Boolean
+    }
+
+    class UserPermission {
+        +{permission_id, table_name, record_id} <<PK>>
+        +permission_id: UUID <<FK>>
+        +table_name: String
+        +record_id: UUID
+        +validate(): Boolean
+    }
+
+    class ResourcePermission {
+        +{permission_id, table_name, record_id} <<PK>>
+        +permission_id: UUID <<FK>>
+        +table_name: String
+        +record_id: UUID
+        +validate(): Boolean
+    }
+
+    class AccessControl {
+        +AUDIT_RETENTION_DAYS: Integer
+        -instance: AccessControl
+        -constructor()
+        +getInstance(): AccessControl
+        +validateAccess(user: User, resource: Object, action: Action): Boolean
+        +getPermissions(user: User): Set<Permission>
+        +validateUserPermissions(user: User, resource: Object, action: Action): Boolean
+        +validateResourceAccess(user: User, resource: Object): Boolean
+        +logAction(actor: User, action: String, target: Object, oldValue: JSON, newValue: JSON): void
+        -cleanupAuditLogs(): void
+    }
+
+    class AuditLog {
+        +log_id: UUID <<PK>>
+        +timestamp: DateTime
+        +table_name: String
+        +actor_id: UUID
+        +action_type: String
+        +target_table: String
+        +record_id: UUID
+        +old_value: JSON
+        +new_value: JSON
+        +metadata: JSON
+        +getAuditTrail(startDate: DateTime, endDate: DateTime): List<AuditLog>
+        +getActorHistory(actorId: UUID): List<AuditLog>
+        +getResourceHistory(tableNname: String, recordId: UUID): List<AuditLog>
+    }
+
+    Permission "1" --[#darkgreen,bold]-> "*" UserPermission
+    Permission "1" --[#darkgreen,bold]-> "*" ResourcePermission
+}
+
 package "Location" #pink {
     class LocationCatalog <<singleton>> {
-        locations: Map<Integer, Location>
-        accessControl: AccessControl
+        -locations: Map<UUID, Location>
+        -accessControl: AccessControl
+        -instance: LocationCatalog
         -LocationCatalog() 
         +getInstance(): LocationCatalog
-        addLocation(location: Location, user: User): void
-        +getLocation(id: Integer, user: User): Location
-        getLocationsByType(type: String, user: User): List<Location>
+        +addLocation(location: Location, user: User): void
+        +getLocation(id: UUID, user: User): Location
+        +getLocationsByType(type: String, user: User): List<Location>
         +getBranches(user: User): List<Branch>
         +getProvinces(user: User): List<Province>
         +getCities(user: User): List<City>
+        -validateLocationHierarchy(location: Location): Boolean
     }
     
     abstract class Location {
-        +location_id: Integer <<PK>>
-        name: String
-        type: String
+        +location_id: UUID <<PK>>
+        #name: String
+        #type: String
         +getFullPath(): String
         #{abstract} validateChildren(): Boolean
+        +getParent(): Location
+        +getChildren(): List<Location>
     }
 
     class Province {
-        provinceSpecificMethods()
+        +provinceSpecificMethods()
         #validateChildren(): Boolean
+        +getCities(): List<City>
     }
 
     class City {
-        citySpecificMethods()
+        +citySpecificMethods()
         #validateChildren(): Boolean
-        province_id <<FK>>
+        -province_id: UUID <<FK>>
+        +getProvince(): Province
+        +getBranches(): List<Branch>
     }
 
     class Branch {
-        schedule_id: Integer <<FK>>
-        branchSpecificMethods()
+        -schedule_id: UUID <<FK>>
+        +branchSpecificMethods()
         #validateChildren(): Boolean  
-        city_id <<FK>>
+        -city_id: UUID <<FK>>
+        +getCity(): City
+        +getSchedule(): Schedule
     }
 
-    class InstructorCityAvailability{
-        {instructor_id, city_id} <<PK>>
-        instructor_id: Integer <<FK>>
-        city_id: Integer <<FK>>
+    class InstructorBranchAvailability {
+        +{instructor_id, branch_id} <<PK>>
+        -instructor_id: UUID <<FK>>
+        -branch_id: UUID <<FK>>
+        +isAvailable(datetime: DateTime): Boolean
     }
 
-    LocationCatalog o--[#red,bold] "0..*" Location : manages >
+    LocationCatalog o--[#red,bold] "*" Location : manages >
     Location <|--[#red,bold] Province
     Location <|--[#red,bold] City
     Location <|--[#red,bold] Branch
     Location -[#red,bold]-> Location : parent
 }
 
-
 package "App" #lightgrey {
     class UI {
-        system: System
-        displayPages()
+        -system: System
+        +displayPages()
         +handleUserInput(input: Input)
-        showMessage(message: String)
+        +showMessage(message: String)
+        -validateInput(input: Input): Boolean
+        +refreshDisplay()
     }
 
     class System <<singleton>> {
-        accessControl: AccessControl
+        -accessControl: AccessControl
+        -instance: System
         -System() 
         +getInstance(): System
         +login(email: String, password: String): User
         +register(userData: Map): User
-        systemMethods()
-    }
-
-    class AccessControl {
-        validateAccess(user: User, resource: Object, action: Action): Boolean
-        +getPermissions(user: User): Set<Permission>
-        validateUserPermissions(user: User, resource: Object, action: Action): Boolean
-        validateResourceAccess(user: User, resource: Object): Boolean
+        +logout(user: User): void
+        -validateCredentials(email: String, password: String): Boolean
+        +getSystemMetrics(): Map
     }
 
     UI --> System : uses >
-    System --> AccessControl : uses >
 }
 
 package "Users" #lightyellow {
     class UserCatalog <<singleton>> {
-        users: Map<Integer, User>
-        accessControl: AccessControl
+        -users: Map<UUID, User>
+        -accessControl: AccessControl
+        -instance: UserCatalog
         -UserCatalog() 
         +getInstance(): UserCatalog
-        addUser(user: User, requestingUser: User): void
-        +getUser(id: Integer, requestingUser: User): User
-        getUsersByType(type: String, requestingUser: User): List<User>
+        +addUser(user: User, requestingUser: User): void
+        +getUser(id: UUID, requestingUser: User): User
+        +getUsersByType(type: String, requestingUser: User): List<User>
+        +updateUser(user: User, requestingUser: User): void
+        +deleteUser(userId: UUID, requestingUser: User): void
     }
 
     abstract class User {
-        +user_id: Integer <<PK>>
-        type: String
-        email: String
-        hashed_password: String
-        name: String
+        +user_id: UUID <<PK>>
+        #type: String
+        #email: String
+        #hashed_password: String
+        #name: String
         +getPermissions(): Set<Permission>
         +canAccess(resource: Object, action: Action): Boolean
         #{abstract} getTypeSpecificPermissions(): Set<Permission>
+        +updateProfile(data: Map): void
+        +changePassword(oldPassword: String, newPassword: String): Boolean
     }
 
     class Administrator {
         #getTypeSpecificPermissions(): Set<Permission>
-        validateAccess(resource: Object, action: Action): Boolean
+        +validateAccess(resource: Object, action: Action): Boolean
+        +getSystemAccessLogs(): List<AuditLog>
+        +manageUsers(): void
     }
 
     class Instructor {
-        phone: String
-        specialization: String
-        schedule_id: Integer <<FK>>
+        -phone: String
+        -specialization: String
+        -schedule_id: UUID <<FK>>
         #getTypeSpecificPermissions(): Set<Permission>
-        validateAccess(resource: Object, action: Action): Boolean
+        +validateAccess(resource: Object, action: Action): Boolean
+        +getSchedule(): Schedule
+        +updateAvailability(timeSlots: List<TimeSlot>): void
+        +getStudents(): List<Client>
     }
 
     class Client {
-        schedule_id: Integer <<FK>>
-        age: Integer
-        guardian_id: Integer,Null <<FK>>
+        -schedule_id: UUID <<FK>>
+        -age: Integer
+        -guardian_id: UUID,Null <<FK>>
         #getTypeSpecificPermissions(): Set<Permission>
-        validateAccess(resource: Object, action: Action): Boolean
+        +validateAccess(resource: Object, action: Action): Boolean
+        +getSchedule(): Schedule
+        +getBookings(): List<Booking>
+        +getGuardian(): Client
+        +getDependents(): List<Client>
     }
 
-    UserCatalog o--[#orange,bold] "0..*" User : manages >
+    UserCatalog o--[#orange,bold] "*" User : manages >
     User <|-[#orange,bold] Administrator
     User <|--[#orange,bold] Instructor
     User <|--[#orange,bold] Client
-    Client "*" -[#orange,bold]-> "1" Client: guardian of
+    Client "1" -[#orange,bold]-> "*" Client: guardian of
 }
 
 package "Scheduling" #lightblue {
     class ScheduleCatalog <<singleton>> {
-        accessControl: AccessControl
+        -instance: ScheduleCatalog
+        -accessControl: AccessControl
         -ScheduleCatalog() 
         +getInstance(): ScheduleCatalog
-        +getSchedule(id: Integer, user: User): Schedule
-        createSchedule(schedule: Schedule, user: User): void
+        +getSchedule(id: UUID, user: User): Schedule
+        +createSchedule(schedule: Schedule, user: User): void
+        +updateSchedule(schedule: Schedule, user: User): void
+        +deleteSchedule(scheduleId: UUID, user: User): void
     }
 
     class Schedule {
-        +schedule_id: Integer <<PK>>
-        schedule_owner_id: Integer <<FK>> 
+        +schedule_id: UUID <<PK>>
+        -schedule_owner_id: UUID <<FK>>
+        +getTimeSlots(): List<TimeSlot>
+        +addTimeSlot(slot: TimeSlot): void
+        +removeTimeSlot(slot: TimeSlot): void
+        +getConflicts(): List<TimeSlot>
     }
 
     class TimeSlot <<weak>> {
         +{schedule_id, start_time} <<PK>>
-        reserved_by_public_offering_id: Integer, Null <<FK>>
-        end_time: DateTime
-        isReserved: Boolean
+        -reserved_by_public_offering_id: UUID,Null <<FK>>
+        -end_time: DateTime
+        -isReserved: Boolean
+        +getDuration(): Integer
+        +isAvailable(): Boolean
+        +reserve(offering: PublicOffering): Boolean
+        +release(): void
     }
 
     ScheduleCatalog o--[#blue,bold] Schedule
-    Schedule "1" *--[#blue,bold] "0..*" TimeSlot
+    Schedule "1" *--[#blue,bold] "*" TimeSlot
 }
 
-package "Offerings" #lightgreen {
+package "Offerings" #DFF5E4 {
     class OfferingCatalog <<singleton>> {
-        accessControl: AccessControl
+        -instance: OfferingCatalog
+        -accessControl: AccessControl
         -OfferingCatalog() 
         +getInstance(): OfferingCatalog
-        createOffering(offering: Offering, user: User): void
-        +getOffering(id: Integer, user: User): Offering
+        +createOffering(offering: Offering, user: User): void
+        +getOffering(id: UUID, user: User): Offering
+        +updateOffering(offering: Offering, user: User): void
+        +deleteOffering(offeringId: UUID, user: User): void
     }
 
     class Offering {
-        +offering_id: Integer <<PK>>
-        instructor_id: Integer <<FK>>
-        lesson_type: String
-        mode: String
-        capacity: Integer
+        +offering_id: UUID <<PK>>
+        -lesson_type: String
+        -mode: String
+        -capacity: Integer
+        -duration: Integer
+        +getAvailableSlots(): Integer
+        +isAvailable(): Boolean
+        +getPublicOfferings(): List<PublicOffering>
+        +getBranches(): List<Branch>
     }
 
     class PublicOffering <<weak>> {
-        +{offering_id, instructor_id} <<PK>>
-        schedule_id: Integer <<FK>>
+        +{from_offering_id, instructor_id} <<PK>>
+        -schedule_id: UUID <<FK>>
+        -from_offering_id: UUID <<FK>>
+        -instructor_id: UUID <<FK>>
+        +getInstructor(): Instructor
+        +getSchedule(): Schedule
+        +getBookings(): List<Booking>
+        +getAvailability(): List<TimeSlot>
+    }
+
+    class OfferedInBranch {
+        +{offering_id, branch_id} <<PK>>
+        -offering_id: UUID <<FK>>
+        -branch_id: UUID <<FK>>
+        +getOffering(): Offering
+        +getBranch(): Branch
     }
 
     OfferingCatalog o--[#green,bold] Offering
+    OfferingCatalog o--[#green,bold] PublicOffering
     PublicOffering -[#green,bold]-|> Offering
 }
 
 package "Bookings" #E6E6FA {
     class BookingCatalog <<singleton>> {
-        accessControl: AccessControl
+        -instance: BookingCatalog
+        -accessControl: AccessControl
         -BookingCatalog() 
         +getInstance(): BookingCatalog
-        createBooking(booking: Booking, user: User): void
-        +getBooking(id: Integer, user: User): Booking
-        +getUserBookings(userId: Integer, user: User): List<Booking>
+        +createBooking(booking: Booking, user: User): void
+        +getBooking(id: UUID, user: User): Booking
+        +getUserBookings(userId: UUID, user: User): List<Booking>
+        +cancelBooking(bookingId: UUID, user: User): void
     }
 
-    class Booking <<weak>> {
+    class Booking {
         +{booked_by_client_id,public_offering_id} <<PK>>
-        booked_by_client_id: Integer <<FK>>
-        booked_for_client_id: Integer <<FK>>
-        public_offering_id: Integer <<FK>>
+        -booked_by_client_id: UUID <<FK>>
+        -booked_for_client_id: UUID <<FK>>
+        -public_offering_id: UUID <<FK>>
+        +getBooker(): Client
+        +getAttendee(): Client
+        +getOffering(): PublicOffering
+        +cancel(): void
+        +reschedule(newTimeSlot: TimeSlot): Boolean
     }
     
     BookingCatalog o--[#purple,bold] Booking
 }
 
 ' Cross package relationships
-Instructor "1" --[#orange,bold] "*" PublicOffering : teaches >
-Branch "1" --[#red,bold] "1" Schedule : has >
-Schedule "1" --[#blue,bold] "1" User : belongs to >
-PublicOffering "1" -[#blue,bold]- "0..*" TimeSlot: reserves >
+Instructor "1" -[#orange,bold]-> "*" PublicOffering : teaches 
+Branch "1" -[#red,bold]-> "1" Schedule : has 
+Schedule "1" <-[#orange,bold]- "1" User : has
+PublicOffering "1" -[#green,bold]-> "*" TimeSlot: reserves 
+User "*" --[#orange,bold]-> "*" Permission : has 
+AccessControl -[#darkgreen,bold]-> AuditLog : manages 
+System "1" -[#black,bold]-> "1" AccessControl : uses 
 
 ' Association Classes
 (Client, PublicOffering).. Booking
-(Instructor,City).. InstructorCityAvailability 
+(Instructor,Branch).. InstructorBranchAvailability 
+(Offering, Branch) .. OfferedInBranch
 
 ' System Associations
 System "1" -[#black,bold]-> "1" LocationCatalog : manages 
@@ -220,6 +342,24 @@ System "1" -[#black,bold]-> "1" ScheduleCatalog : manages
 System "1" -[#black,bold]-> "1" UserCatalog : manages 
 System "1" -[#black,bold]-> "1" OfferingCatalog : manages 
 System "1" -[#black,bold]-> "1" BookingCatalog : manages 
+
+note top of AccessControl
+Centralized access control:
+- Permission-based access control
+- Resource-level permissions
+- User-level permissions
+- Audit logging with retention policy (AUDIT_RETENTION_DAYS)
+- Polymorphic permissions system
+- Comprehensive action tracking
+_________
+Audit Trail:
+- Tracks all system actions
+- Retention policy: AUDIT_RETENTION_DAYS
+- Stores before/after values
+- Includes metadata (IP, user agent)
+- Supports compliance requirements
+- Historical tracking
+end note
 
 note top of Users
 Shared permissions:
@@ -229,32 +369,20 @@ Shared permissions:
 Administrator specific:
 - Full system access (READ_ALL_RECORDS, WRITE_ALL_RECORDS)
 - Can manage all resources
+- Access to audit logs
+- User management
 
 Instructor specific:
 - Read all offerings
 - Limited write to all offerings
 - Read bookings for own lessons
 - Read user info for own students
+- Schedule management
 
 Client specific:
 - Read/Write own bookings
 - Limited read of related users (guardian, instructors)
-end note
-
-note bottom of AccessControl
-Centralized permission management:
-- Validates all access requests
-- Manages user permissions
-- Enforces resource-level access control
-- Handles relationship-based permissions
-end note
-
-note right of System
-Each catalog operation now requires:
-1. User authentication
-2. Permission validation
-3. Resource access check
-4. Relationship validation
+- View available offerings
 end note
 
 @enduml
