@@ -1,397 +1,320 @@
-from System import generate_id, System
-from Bookings import Booking
+import uuid
+import psycopg2
+from psycopg2.extras import DictCursor
+import json
+from datetime import datetime
+import logging
 from singleton_decorator import singleton
+from typing import Optional, Union
+import bcrypt
+
+# Import user types from their respective modules
+from Admins import Administrator
+from Instructors import Instructor
+from Clients import Client
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 @singleton
 class UserCatalog:
-
     def __init__(self):
-        self.users = {}  # Dictionary to store users by their IDs
-        self.email_to_user = {}  # Dictionary to map emails to user instances for login
+        self.db = DatabaseConnection()
 
-    def add_user(self, user):
-        """Add a user to the catalog."""
-        self.users[user.user_id] = user
-        self.email_to_user[user.email] = user
+    def _hash_password(self, password: str) -> str:
+        """Hash a password using bcrypt."""
+        salt = bcrypt.gensalt()
+        return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
 
-    def get_user_by_id(self, user_id):
-        """Retrieve a user by their ID."""
-        return self.users.get(user_id)
+    def _verify_password(self, password: str, hashed: str) -> bool:
+        """Verify a password against its hash."""
+        return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
 
-    def get_user_by_email(self, email):
-        """Retrieve a user by their email."""
-        return self.email_to_user.get(email)
-
-    def remove_user(self, user_id):
-        """Remove a user from the catalog."""
-        user = self.users.pop(user_id, None)
-        if user:
-            self.email_to_user.pop(user.email, None)
-
-    def login(self, email, password):
-        """Authenticate a user based on email and password."""
-        user = self.get_user_by_email(email)
-        if user and user.password == password:
-            return user
-        return None
-
-    def register_client(self, age, email, password, schedule_catalog, guardian_id=None):
+    def register_client(self, email: str, password: str, name: str, schedule_id: str, 
+                       age: int = None, guardian_id: str = None) -> Client:
         """Register a new client."""
-        client_id = generate_id()
-        client = Client(
-            client_id=client_id,
-            age=age,
-            email=email,
-            password=password,
-            schedule_catalog=schedule_catalog,
-            guardian_id=guardian_id
-        )
-        self.add_user(client)
-        return client
+        try:
+            with self.db.get_connection() as conn:
+                with conn.cursor() as cur:
+                    user_id = str(uuid.uuid4())
+                    hashed_password = self._hash_password(password)
+                    
+                    # Insert client
+                    cur.execute("""
+                        INSERT INTO clients (
+                            user_id, email, hashed_password, name, 
+                            schedule_id, age, guardian_id
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        RETURNING user_id
+                    """, (
+                        user_id, email, hashed_password, name,
+                        schedule_id, age, guardian_id
+                    ))
+                    
+                    # Create audit log
+                    cur.execute("""
+                        INSERT INTO audit_logs (
+                            log_id, timestamp, table_name, action_type, 
+                            target_table, record_id, new_value
+                        ) VALUES (%s, %s, 'clients', 'INSERT', 'clients', %s, %s::jsonb)
+                    """, (
+                        str(uuid.uuid4()),
+                        datetime.now(),
+                        user_id,
+                        json.dumps({
+                            'user_id': user_id,
+                            'email': email,
+                            'name': name,
+                            'schedule_id': schedule_id,
+                            'age': age,
+                            'guardian_id': guardian_id
+                        })
+                    ))
+                    
+                    conn.commit()
+                    return Client(user_id, email, name, schedule_id, age, guardian_id)
+                    
+        except Exception as e:
+            logger.error(f"Error registering client: {e}")
+            raise
 
-    def register_instructor(self, name, phone, specialization, email, password, schedule_catalog):
+    def register_instructor(self, email: str, password: str, name: str, phone: str,
+                          specialization: str, schedule_id: str) -> Instructor:
         """Register a new instructor."""
-        instructor_id = generate_id()
-        instructor = Instructor(
-            instructor_id=instructor_id,
-            name=name,
-            phone=phone,
-            specialization=specialization,
-            email=email,
-            password=password,
-            schedule_catalog=schedule_catalog
-        )
-        self.add_user(instructor)
-        return instructor
+        try:
+            with self.db.get_connection() as conn:
+                with conn.cursor() as cur:
+                    user_id = str(uuid.uuid4())
+                    hashed_password = self._hash_password(password)
+                    
+                    # Insert instructor
+                    cur.execute("""
+                        INSERT INTO instructors (
+                            user_id, email, hashed_password, name,
+                            phone, specialization, schedule_id
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        RETURNING user_id
+                    """, (
+                        user_id, email, hashed_password, name,
+                        phone, specialization, schedule_id
+                    ))
+                    
+                    # Create audit log
+                    cur.execute("""
+                        INSERT INTO audit_logs (
+                            log_id, timestamp, table_name, action_type, 
+                            target_table, record_id, new_value
+                        ) VALUES (%s, %s, 'instructors', 'INSERT', 'instructors', %s, %s::jsonb)
+                    """, (
+                        str(uuid.uuid4()),
+                        datetime.now(),
+                        user_id,
+                        json.dumps({
+                            'user_id': user_id,
+                            'email': email,
+                            'name': name,
+                            'phone': phone,
+                            'specialization': specialization,
+                            'schedule_id': schedule_id
+                        })
+                    ))
+                    
+                    conn.commit()
+                    return Instructor(user_id, email, name, phone, specialization, schedule_id)
+                    
+        except Exception as e:
+            logger.error(f"Error registering instructor: {e}")
+            raise
 
-    def register_administrator(self, email, password):
+    def register_administrator(self, email: str, password: str, name: str) -> Administrator:
         """Register a new administrator."""
-        admin_id = generate_id()
-        admin = Administrator(
-            admin_id=admin_id,
-            email=email,
-            password=password
-        )
-        self.add_user(admin)
-        return admin
+        try:
+            with self.db.get_connection() as conn:
+                with conn.cursor() as cur:
+                    user_id = str(uuid.uuid4())
+                    hashed_password = self._hash_password(password)
+                    
+                    # Insert administrator
+                    cur.execute("""
+                        INSERT INTO administrators (
+                            user_id, email, hashed_password, name
+                        ) VALUES (%s, %s, %s, %s)
+                        RETURNING user_id
+                    """, (user_id, email, hashed_password, name))
+                    
+                    # Create audit log
+                    cur.execute("""
+                        INSERT INTO audit_logs (
+                            log_id, timestamp, table_name, action_type, 
+                            target_table, record_id, new_value
+                        ) VALUES (%s, %s, 'administrators', 'INSERT', 'administrators', %s, %s::jsonb)
+                    """, (
+                        str(uuid.uuid4()),
+                        datetime.now(),
+                        user_id,
+                        json.dumps({
+                            'user_id': user_id,
+                            'email': email,
+                            'name': name
+                        })
+                    ))
+                    
+                    conn.commit()
+                    return Administrator(user_id, email, name)
+                    
+        except Exception as e:
+            logger.error(f"Error registering administrator: {e}")
+            raise
 
-class Instructor:
-    def __init__(self, instructor_id, name, phone, specialization, email, password, schedule_catalog):
-        self.user_id = instructor_id  # Using 'user_id' for consistency
-        self.instructor_id = instructor_id
-        self.name = name
-        self.phone = phone
-        self.specialization = specialization
-        self.email = email
-        self.password = password
-        self.schedule = schedule_catalog.create_schedule(instructor_id)
-        self.available_cities = []  # List of city IDs where the instructor is available
-
-    def create_offering(self, offering_catalog, lesson_type, mode, capacity):
-        offering = offering_catalog.create_offering(
-            instructor_id=self.instructor_id,
-            lesson_type=lesson_type,
-            mode=mode,
-            capacity=capacity
-        )
-        return offering
-
-    def create_public_offering(self, offering_catalog, offering_id, max_clients):
-        public_offering = offering_catalog.create_public_offering(offering_id, max_clients)
-        return public_offering
-
-    def set_availability(self, city_id):
-        """Add a city to the instructor's availability."""
-        if city_id not in self.available_cities:
-            self.available_cities.append(city_id)
-
-    def __repr__(self):
-        return (f"Instructor(instructor_id={self.instructor_id}, name='{self.name}', "
-                f"specialization='{self.specialization}', email='{self.email}')")
-    
-    
-
-class Client:
-    def __init__(self, client_id, email, password, schedule_catalog, age=None, guardian_id=None):
-        self.user_id = client_id
-        self.client_id = client_id
-        self.email = email
-        self.password = password  # Store hashed password
-        self.age = age
-        self.guardian_id = guardian_id
-        self.schedule = schedule_catalog.create_schedule(client_id)
-        self.bookings = []
-
-    def create_booking(self, booking_catalog, booking_id, public_offering_id, booked_for_client_ids):
-        """Create a booking and add it to the booking catalog."""
-        booking = Booking(
-            booking_id=booking_id,
-            booked_by_client_id=self.client_id,
-            public_offering_id=public_offering_id,
-            booked_for_client_ids=booked_for_client_ids
-        )
-        booking_catalog.add_booking(booking)
-        self.bookings.append(booking_id)
-        return booking
-
-    def cancel_booking(self, booking_catalog, booking_id):
-        """Cancel a booking."""
-        booking = booking_catalog.get_booking_by_id(booking_id)
-        if booking and booking.booked_by_client_id == self.client_id:
-            booking_catalog.remove_booking(booking_id)
-            self.bookings.remove(booking_id)
-            return True
-        return False
-    
-    def cancel_booking(self, system, offering_id):
-        """Cancel a booking for a given offering."""
-        offering = system.offering_catalog.get_public_offering(offering_id)
-        if not offering:
-            print("Offering not found.")
-            return False
-
-        if self.client_id not in offering.get_client_ids():
-            print("You do not have a booking for this offering.")
-            return False
-
-        # Remove booking
-        booking_id = None
-        for b_id in offering.associated_booking_id_list:
-            booking = system.booking_catalog.get_booking_by_id(b_id)
-            if booking and self.client_id in booking.booked_for_client_ids:
-                booking_id = b_id
-                break
-
-        if booking_id:
-            offering.associated_booking_id_list.remove(booking_id)
-            system.booking_catalog.remove_booking(booking_id)
-            self.bookings.remove(booking_id)
-            offering.adjust_capacity(-1)
-            # Remove reserved time slots from client's schedule
-            self.schedule.cancel_reserved_slots(offering.reserved_timeslot_id_list)
-            print("Booking canceled successfully.")
-
-            # Notify other clients (simplified)
-            for client_id in offering.get_client_ids():
-                other_client = system.user_catalog.get_user_by_id(client_id)
-                if other_client:
-                    other_client.notify_cancellation(offering_id)
-
-            return True
-        else:
-            print("Booking not found.")
-            return False
-
-    def notify_cancellation(self, offering_id):
-        """Notify the client about a cancellation."""
-        print(f"Notification: A booking for offering {offering_id} has been canceled.")
-
-    def __repr__(self):
-        return (f"Client(client_id={self.client_id}, age={self.age}, "
-                f"email='{self.email}', guardian_id={self.guardian_id})")
-    
-    def make_booking(self, system, search_query):
-        """Make a booking based on a search query."""
-        public_offerings = system.search_public_offerings(search_query)
-        if not public_offerings:
-            print("No offerings found.")
-            return None
-
-        # Simulate client selecting an offering
-        print("Available Offerings:")
-        for idx, offering in enumerate(public_offerings):
-            print(f"{idx + 1}. {offering}")
-
-        selection = int(input("Select an offering by number: ")) - 1
-        if selection < 0 or selection >= len(public_offerings):
-            print("Invalid selection.")
-            return None
-
-        selected_offering = public_offerings[selection]
-        if selected_offering.max_clients <= len(selected_offering.associated_booking_id_list):
-            print("Offering is full.")
-            return None
-
-        # Check for schedule conflicts
-        client_schedule = self.schedule
-        offering_timeslots = selected_offering.reserved_timeslot_id_list
-        client_timeslots = [ts.start_time for ts in client_schedule.get_reserved_slots()]
-
-        conflict = False
-        for ts in offering_timeslots:
-            if ts in client_timeslots:
-                conflict = True
-                break
-
-        if conflict:
-            print("Schedule conflict detected.")
-            return None
-
-        # Create booking
-        booking_id = generate_id()
-        booking = Booking(
-            booking_id=booking_id,
-            booked_by_client_id=self.client_id,
-            public_offering_id=selected_offering.public_offering_id,
-            booked_for_client_ids=[self.client_id]
-        )
-        system.booking_catalog.add_booking(booking)
-        self.bookings.append(booking_id)
-        selected_offering.add_booking(booking_id)
-        client_schedule.add_reserved_slots(offering_timeslots)
-        print("Booking successful.")
-        return booking
-    
-    def cancel_booking(self, system, offering_id):
-        """Cancel a booking for a given offering."""
-        offering = system.offering_catalog.get_public_offering(offering_id)
-        if not offering:
-            print("Offering not found.")
-            return False
-
-        if self.client_id not in offering.get_client_ids():
-            print("You do not have a booking for this offering.")
-            return False
-
-        # Remove booking
-        booking_id = None
-        for b_id in offering.associated_booking_id_list:
-            booking = system.booking_catalog.get_booking_by_id(b_id)
-            if booking and self.client_id in booking.booked_for_client_ids:
-                booking_id = b_id
-                break
-
-        if booking_id:
-            offering.associated_booking_id_list.remove(booking_id)
-            system.booking_catalog.remove_booking(booking_id)
-            self.bookings.remove(booking_id)
-            offering.adjust_capacity(-1)
-            # Remove reserved time slots from client's schedule
-            self.schedule.cancel_reserved_slots(offering.reserved_timeslot_id_list)
-            print("Booking canceled successfully.")
-
-            # Notify other clients (simplified)
-            for client_id in offering.get_client_ids():
-                other_client = system.user_catalog.get_user_by_id(client_id)
-                if other_client:
-                    other_client.notify_cancellation(offering_id)
-
-            return True
-        else:
-            print("Booking not found.")
-            return False
-
-    def notify_cancellation(self, offering_id):
-        """Notify the client about a cancellation."""
-        print(f"Notification: A booking for offering {offering_id} has been canceled.")
-
-class Administrator:
-    def __init__(self, admin_id, email, password):
-        self.user_id = admin_id
-        self.admin_id = admin_id
-        self.email = email
-        self.password = password
-        self.system = System.get_instance()  # Get the singleton instance of System
-
-
-    def create_offering(self, lesson_type, mode, capacity):
-        return self.system.create_offering(lesson_type, mode, capacity)
-
-    def delete_user(self, user_id):
-        return self.system.delete_user(user_id)
-
-    def edit_user(self, user_id, **kwargs):
-        return self.system.edit_user(user_id, **kwargs)
-
-    def delete_booking(self, booking_id):
-        return self.system.delete_booking(booking_id)
-
-    def edit_booking(self, booking_id, **kwargs):
-        return self.system.edit_booking(booking_id, **kwargs)
-
-    def delete_offering(self, offering_id):
-        return self.system.delete_offering(offering_id)
-
-    def edit_offering(self, offering_id, **kwargs):
-        return self.system.edit_offering(offering_id, **kwargs)
-
-    def __repr__(self):
-        return (f"Administrator(admin_id={self.admin_id}, email='{self.email}')")
-    
-
-class Administrator:
-    def __init__(self, admin_id, email, password):
-        self.user_id = admin_id
-        self.admin_id = admin_id
-        self.email = email
-        self.password = password  # Should be stored as a hashed password
-        self.system = System.get_instance()  # Get the singleton instance of System
-
-    # Administrator methods
-
-    def create_offering(self, lesson_type, mode, capacity):
-        """Create a new offering."""
-        return self.system.create_offering(lesson_type, mode, capacity)
-
-    def delete_user(self, user_id):
-        """Delete a user."""
-        return self.system.delete_user(user_id)
-
-    def edit_user(self, user_id, **kwargs):
-        """Edit user information."""
-        return self.system.edit_user(user_id, **kwargs)
-
-    def delete_booking(self, booking_id):
-        """Delete a booking."""
-        return self.system.delete_booking(booking_id)
-
-    def edit_booking(self, booking_id, **kwargs):
-        """Edit booking information."""
-        return self.system.edit_booking(booking_id, **kwargs)
-
-    def delete_offering(self, offering_id):
-        """Delete an offering."""
-        return self.system.delete_offering(offering_id)
-
-    def edit_offering(self, offering_id, **kwargs):
-        """Edit offering information."""
-        return self.system.edit_offering(offering_id, **kwargs)
-
-    def __repr__(self):
-        return f"Administrator(admin_id={self.admin_id}, email='{self.email}')"
-    
-
-class UserCatalog:
-    _instance = None
-
-    @classmethod
-    def get_instance(cls):
-        if cls._instance is None:
-            cls._instance = UserCatalog()
-        return cls._instance
-
-    def __init__(self):
-        if hasattr(self, '_initialized'):
-            return
-        self._initialized = True
-        self.users = {}  # Users by user_id
-        self.email_to_user = {}  # Users by email
-
-    def add_user(self, user):
-        """Add a user to the catalog."""
-        self.users[user.user_id] = user
-        self.email_to_user[user.email] = user
-
-    def get_user_by_id(self, user_id):
+    def get_user_by_id(self, user_id: str) -> Optional[Union[Client, Instructor, Administrator]]:
         """Retrieve a user by their ID."""
-        return self.users.get(user_id)
+        try:
+            with self.db.get_connection() as conn:
+                with conn.cursor(cursor_factory=DictCursor) as cur:
+                    # Try each user type table
+                    for table, cls in [
+                        ('clients', Client),
+                        ('instructors', Instructor),
+                        ('administrators', Administrator)
+                    ]:
+                        cur.execute(f"""
+                            SELECT *
+                            FROM {table}
+                            WHERE user_id = %s
+                        """, (user_id,))
+                        
+                        result = cur.fetchone()
+                        if result:
+                            return cls(**dict(result))
+                    
+                    return None
+                    
+        except Exception as e:
+            logger.error(f"Error retrieving user: {e}")
+            raise
 
-    def get_user_by_email(self, email):
+    def get_user_by_email(self, email: str) -> Optional[Union[Client, Instructor, Administrator]]:
         """Retrieve a user by their email."""
-        return self.email_to_user.get(email)
+        try:
+            with self.db.get_connection() as conn:
+                with conn.cursor(cursor_factory=DictCursor) as cur:
+                    # Try each user type table
+                    for table, cls in [
+                        ('clients', Client),
+                        ('instructors', Instructor),
+                        ('administrators', Administrator)
+                    ]:
+                        cur.execute(f"""
+                            SELECT *
+                            FROM {table}
+                            WHERE email = %s
+                        """, (email,))
+                        
+                        result = cur.fetchone()
+                        if result:
+                            return cls(**dict(result))
+                    
+                    return None
+                    
+        except Exception as e:
+            logger.error(f"Error retrieving user by email: {e}")
+            raise
 
-    def remove_user(self, user_id):
-        """Remove a user from the catalog."""
-        user = self.users.pop(user_id, None)
-        if user:
-            self.email_to_user.pop(user.email, None)
+    def delete_user(self, user_id: str) -> bool:
+        """Delete a user from any user type table."""
+        try:
+            with self.db.get_connection() as conn:
+                with conn.cursor() as cur:
+                    # Try to delete from each user type table
+                    for table in ['clients', 'instructors', 'administrators']:
+                        # Get current data for audit log
+                        cur.execute(f"""
+                            SELECT *
+                            FROM {table}
+                            WHERE user_id = %s
+                        """, (user_id,))
+                        
+                        old_data = cur.fetchone()
+                        if old_data:
+                            # Create audit log
+                            cur.execute("""
+                                INSERT INTO audit_logs (
+                                    log_id, timestamp, table_name, action_type, 
+                                    target_table, record_id, old_value
+                                ) VALUES (%s, %s, %s, 'DELETE', %s, %s, %s::jsonb)
+                            """, (
+                                str(uuid.uuid4()),
+                                datetime.now(),
+                                table,
+                                table,
+                                user_id,
+                                json.dumps(dict(zip([col.name for col in cur.description], old_data)))
+                            ))
+                            
+                            # Delete the user
+                            cur.execute(f"""
+                                DELETE FROM {table}
+                                WHERE user_id = %s
+                            """, (user_id,))
+                            
+                            conn.commit()
+                            return True
+                    
+                    return False
+                    
+        except Exception as e:
+            logger.error(f"Error deleting user: {e}")
+            raise
+
+    def login(self, email: str, password: str) -> Optional[Union[Client, Instructor, Administrator]]:
+        """Authenticate a user based on email and password."""
+        try:
+            with self.db.get_connection() as conn:
+                with conn.cursor(cursor_factory=DictCursor) as cur:
+                    # Try each user type table
+                    for table, cls in [
+                        ('clients', Client),
+                        ('instructors', Instructor),
+                        ('administrators', Administrator)
+                    ]:
+                        cur.execute(f"""
+                            SELECT *
+                            FROM {table}
+                            WHERE email = %s
+                        """, (email,))
+                        
+                        user = cur.fetchone()
+                        if user and self._verify_password(password, user['hashed_password']):
+                            return cls(**dict(user))
+                    
+                    return None
+                    
+        except Exception as e:
+            logger.error(f"Error during login: {e}")
+            raise
+
+if __name__ == "__main__":
+    # Example usage
+    try:
+        catalog = UserCatalog()
+        
+        # Register a client
+        client = catalog.register_client(
+            email="client@example.com",
+            password="securepass",
+            name="John Doe",
+            schedule_id=str(uuid.uuid4()),
+            age=25
+        )
+        logger.info(f"Created client: {client}")
+        
+        # Try to login
+        logged_in_user = catalog.login("client@example.com", "securepass")
+        logger.info(f"Logged in user: {logged_in_user}")
+        
+    except Exception as e:
+        logger.error(f"Error in main: {e}")

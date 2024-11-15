@@ -9,6 +9,17 @@
 
 Gymmmy offers it's users a flexible and practical to book fitness classes.
 
+## Running:
+
+```
+1) install the requirements
+    pip install -r requirements.txt
+2) install posgrestsql however you find convenient
+3) create a .secrets file in root (see .secrets_example)
+4) run postgres_setup.py
+5) run Main.py
+```
+
 ## UML Diagrams:
 
 The UML Diagrams are written in PlantUML, both code and generated images are present in UML-Diagrams folder
@@ -27,3 +38,10 @@ Below is a relational model built with DBDiagram to provide persistence to the a
 
 We provide a screenshot as a backup but do not at all guarantee the screenshot is up to date, plus it is missing interactive features. Please use the live version.
 ![Relational-Model](System-Diagrams/Relational-Model-Possibly-Outdated.png)
+
+## Bonus Developments
+
+these are in the UML but may or may not be finished for grading
+
+- Creating the UI
+- The Policy package
