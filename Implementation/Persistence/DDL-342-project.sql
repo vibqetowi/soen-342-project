@@ -87,13 +87,12 @@ CREATE TABLE "offerings" (
 );
 
 CREATE TABLE "public_offerings" (
-  "offering_id" char(36),
+  "offering_id" char(36) PRIMARY KEY,
   "instructor_id" char(36),
   "schedule_id" char(36),
   "lesson_type" varchar,
   "mode" varchar,
   "capacity" integer,
-  PRIMARY KEY ("offering_id", "instructor_id")
 );
 
 CREATE TABLE "instructor_branch_availability" (

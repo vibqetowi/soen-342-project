@@ -1,18 +1,13 @@
-import uuid
 import bcrypt
 from singleton_decorator import singleton
-
-from Users import UserCatalog, Client, Administrator, Instructor
+from utils import generate_id
+from Users import UserCatalog, Client
 from Offerings import OfferingCatalog
 from Bookings import BookingCatalog
 from Location import LocationCatalog
 from Scheduling import ScheduleCatalog
 
 
-
-def generate_id() -> str:
-    """Generates a random UUID for database IDs."""
-    return str(uuid.uuid4())  # Return UUID as a string
 
 def hash_password(password: str) -> bytes:
     """Hashes a password using bcrypt."""
@@ -131,3 +126,51 @@ class System:
             offering for offering in self.offering_catalog.get_all_public_offerings()
             if search_query.lower() in offering.lesson_type.lower()
         ]
+
+
+class Administrator:
+    def __init__(self, admin_id, email, password):
+        self.user_id = admin_id
+        self.admin_id = admin_id
+        self.email = email
+        self.password = password  # Should be stored as a hashed password
+
+    # Administrator methods
+
+    def create_offering(self, lesson_type, mode, capacity):
+        """Create a new offering."""
+        system = System.get_instance()
+        return system.create_offering(lesson_type, mode, capacity)
+
+    def delete_user(self, user_id):
+        """Delete a user."""
+        system = System.get_instance()
+        return system.delete_user(user_id)
+
+    def edit_user(self, user_id, **kwargs):
+        """Edit user information."""
+        system = System.get_instance()
+        return system.edit_user(user_id, **kwargs)
+
+    def delete_booking(self, booking_id):
+        """Delete a booking."""
+        system = System.get_instance()
+        return system.delete_booking(booking_id)
+
+    def edit_booking(self, booking_id, **kwargs):
+        """Edit booking information."""
+        system = System.get_instance()
+        return system.edit_booking(booking_id, **kwargs)
+
+    def delete_offering(self, offering_id):
+        """Delete an offering."""
+        system = System.get_instance()
+        return system.delete_offering(offering_id)
+
+    def edit_offering(self, offering_id, **kwargs):
+        """Edit offering information."""
+        system = System.get_instance()
+        return system.edit_offering(offering_id, **kwargs)
+
+    def __repr__(self):
+        return f"Administrator(admin_id={self.admin_id}, email='{self.email}')"
