@@ -1,40 +1,42 @@
-class Booking:
-    def __init__(self, booking_id, booked_by_client_id, public_offering_id, booked_for_client_ids):
-        self.booking_id = booking_id
-        self.booked_by_client_id = booked_by_client_id
-        self.public_offering_id = public_offering_id
-        self.booked_for_client_ids = booked_for_client_ids  # List of client IDs
+from singleton_decorator import singleton
+from sqlalchemy.orm import Session
+from Database import SessionLocal
+from Models import Booking
+from utils import generate_id
 
-    def __repr__(self):
-        return (f"Booking(booking_id={self.booking_id}, "
-                f"booked_by_client_id={self.booked_by_client_id}, "
-                f"public_offering_id={self.public_offering_id}, "
-                f"booked_for_client_ids={self.booked_for_client_ids})")
-
+@singleton
 class BookingCatalog:
-    __instance = None
+    def __init__(self, session: Session = None):
+        self.session = session or SessionLocal()
 
-    def __init__(self):
-        if BookingCatalog.__instance is not None:
-            raise Exception("Singleton Class")
-        else:
-            BookingCatalog.__instance = self
-            self.bookings = []
+    def add_booking(self, booked_by_client_id, public_offering_id, booked_for_client_ids):
+        """Add a new booking to the database."""
+        booking_id = generate_id()
+        for client_id in booked_for_client_ids:
+            booking = Booking(
+                booking_id=booking_id,
+                booked_by_client_id=booked_by_client_id,
+                public_offering_id=public_offering_id,
+                booked_for_client_id=client_id
+            )
+            self.session.add(booking)
+        self.session.commit()
 
-    @staticmethod
-    def get_instance():
-        if BookingCatalog.__instance is None:
-            BookingCatalog()
-        return BookingCatalog.__instance
+    def get_booking_by_id(self, booking_id):
+        """Retrieve a booking by ID."""
+        return self.session.query(Booking).filter_by(booking_id=booking_id).first()
 
-    def add_booking(self, booking):
-        self.bookings.append(booking)
+    def remove_booking(self, booking_id):
+        """Remove a booking by ID."""
+        booking = self.get_booking_by_id(booking_id)
+        if booking:
+            self.session.delete(booking)
+            self.session.commit()
 
-    def get_booking_by_id(self, get_booking_id):
-        for booking in self.bookings:
-            if booking.booking_id == get_booking_id:
-                return booking
-        return None
+    def get_all_bookings_for_client(self, client_id):
+        """Retrieve all bookings for a specific client."""
+        return self.session.query(Booking).filter_by(booked_for_client_id=client_id).all()
 
-    def remove_booking(self, booking_id_to_remove):
-        self.bookings = [b for b in self.bookings if b.booking_id != booking_id_to_remove]
+    def get_all_bookings_by_client(self, client_id):
+        """Retrieve all bookings created by a specific client."""
+        return self.session.query(Booking).filter_by(booked_by_client_id=client_id).all()

@@ -1,111 +1,102 @@
 from datetime import datetime, timedelta
-from System import generate_id  # Assuming generate_id is a function to create unique IDs
-from Offerings import OfferingCatalog
-from singleton_decorator import singleton
+from utils import generate_id
+from sqlalchemy.orm import Session
+from Database import SessionLocal  # Import session management from Database.py
+from Models import Schedule, TimeSlot, Client, Branch, Instructor  
 
-@singleton
 class ScheduleCatalog:
+    def __init__(self, session: Session):
+        self.session = session
 
-    def __init__(self):
-            self.schedules_by_id = {}  # Hashtable to store schedules by ID
-            self.schedules_by_owner = {}  # Hashtable to store schedules by owner ID
+from datetime import datetime, timedelta
+from utils import generate_id
+from sqlalchemy.orm import Session
+from Database import SessionLocal  # Import session management from Database.py
+from Models import Schedule, TimeSlot, Client  
 
-    def create_schedule(self, schedule_owner_id):
-        """Creates a new schedule and adds it to the catalog."""
-        new_id = generate_id()  # Using the system's generate_id method
-        schedule = _Schedule(new_id, schedule_owner_id)
+class ScheduleCatalog:
+    def __init__(self, session: Session):
+        self.session = session
 
-        # Store the schedule by its ID
-        self.schedules_by_id[new_id] = schedule
+    def create_schedule(self, owner_id, owner_type):
+        # Verify the owner exists based on owner_type
+        if owner_type == 'client':
+            owner = self.session.query(Client).filter_by(user_id=owner_id).first()
+        elif owner_type == 'branch':
+            owner = self.session.query(Branch).filter_by(location_id=owner_id).first()
+        elif owner_type == 'instructor':
+            owner = self.session.query(Instructor).filter_by(user_id=owner_id).first()
+        else:
+            raise ValueError("Invalid owner type specified.")
 
-        # Store the schedule by its owner's ID
-        if schedule_owner_id not in self.schedules_by_owner:
-            self.schedules_by_owner[schedule_owner_id] = []
-        self.schedules_by_owner[schedule_owner_id].append(schedule)
+        if not owner:
+            raise ValueError(f"The specified {owner_type} does not exist in the database.")
 
+        # Create and commit the schedule
+        schedule = Schedule(
+            schedule_id=generate_id(),
+            schedule_owner_id=owner_id,
+            schedule_owner_type=owner_type
+        )
+        self.session.add(schedule)
+        self.session.commit()
         return schedule
 
     def get_schedule(self, schedule_id):
         """Retrieves a schedule by its ID."""
-        return self.schedules_by_id.get(schedule_id, None)
+        return self.session.query(Schedule).filter_by(schedule_id=schedule_id).first()
 
     def get_schedules_by_owner(self, schedule_owner_id):
         """Retrieves all schedules for a specific owner ID."""
-        return self.schedules_by_owner.get(schedule_owner_id, [])
+        return self.session.query(Schedule).filter_by(schedule_owner_id=schedule_owner_id).all()
 
-class _Schedule:
-    """Private class representing a schedule."""
-    def __init__(self, schedule_id, schedule_owner_id):
-        self.schedule_id = schedule_id
-        self.schedule_owner_id = schedule_owner_id  # Owner can be a client, a branch, or an instructor
-        self.time_slots = {}  # Hashtable to store time slots by start time
-        self.generate_time_slots()  # Automatically generate time slots upon creation
-
-    def generate_time_slots(self):
-        """Generates time slots for the next week in 30-minute increments."""
+    def generate_time_slots(self, schedule):
+        """Generates time slots for the next week in 30-minute increments for a given schedule."""
         today = datetime.now()
         end_date = today + timedelta(days=7)
         current_time = today.replace(hour=0, minute=0, second=0, microsecond=0)
-
+        
         while current_time < end_date:
-            self.add_time_slot(current_time, current_time + timedelta(minutes=30))
-            current_time += timedelta(minutes=30)
+            start_time = current_time
+            end_time = start_time + timedelta(minutes=30)
+            time_slot = TimeSlot(
+                schedule_id=schedule.schedule_id,
+                start_time=start_time,
+                end_time=end_time,
+                is_reserved=False
+            )
+            self.session.add(time_slot)  # Add time slot to session
+            current_time = end_time
+        
+        self.session.commit()  # Commit all new time slots to the database
 
-        self.delete_old_time_slots()  # Remove time slots older than today
 
-    def add_time_slot(self, start_time, end_time):
-        """Adds a time slot to the schedule."""
-        time_slot = _TimeSlot(start_time, end_time)
-        self.time_slots[start_time] = time_slot  # Use start time as the key
 
-    def delete_old_time_slots(self):
-        """Deletes time slots older than today."""
-        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        self.time_slots = {k: v for k, v in self.time_slots.items() if v.start_time >= today}
+    def get_schedule(self, schedule_id):
+        """Retrieves a schedule by its ID."""
+        return self.session.query(Schedule).filter_by(schedule_id=schedule_id).first()
 
-    def get_available_slots(self):
-        """Returns a list of available time slots."""
-        return [slot for slot in self.time_slots.values() if not slot.is_reserved]
+    def get_schedules_by_owner(self, schedule_owner_id):
+        """Retrieves all schedules for a specific owner ID."""
+        return self.session.query(Schedule).filter_by(schedule_owner_id=schedule_owner_id).all()
 
-    def __repr__(self):
-        return f"Schedule({self.schedule_id}) for Owner({self.schedule_owner_id})"
-    
-    def cancel_reserved_slots(self, timeslot_ids):
-        """Cancel reservations for specific time slots."""
-        for ts_id in timeslot_ids:
-            if ts_id in self.time_slots:
-                self.time_slots[ts_id].cancel_reservation()
+    def generate_time_slots(self, schedule):
+        """Generates time slots for the next week in 30-minute increments for a given schedule."""
+        today = datetime.now()
+        end_date = today + timedelta(days=7)
+        current_time = today.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        while current_time < end_date:
+            start_time = current_time
+            end_time = start_time + timedelta(minutes=30)
+            time_slot = TimeSlot(
+                schedule_id=schedule.schedule_id,
+                start_time=start_time,
+                end_time=end_time,
+                is_reserved=False
+            )
+            self.session.add(time_slot)  # Add time slot to session
+            current_time = end_time
+        
+        self.session.commit()  # Commit all new time slots to the database
 
-    def get_reserved_slots(self):
-        """Get all reserved time slots."""
-        return [slot for slot in self.time_slots.values() if slot.is_reserved]
-
-    def add_reserved_slots(self, timeslot_ids):
-        """Reserve time slots in the schedule."""
-        for ts_id in timeslot_ids:
-            if ts_id in self.time_slots:
-                self.time_slots[ts_id].reserve()
-
-    def cancel_reserved_slots(self, timeslot_ids):
-        """Cancel reservations for specific time slots."""
-        for ts_id in timeslot_ids:
-            if ts_id in self.time_slots:
-                self.time_slots[ts_id].cancel_reservation()
-
-class _TimeSlot:
-    """Private class representing a time slot."""
-    def __init__(self, start_time, end_time):
-        self.start_time = start_time
-        self.end_time = end_time
-        self.is_reserved = False
-
-    def reserve(self):
-        """Reserves the time slot."""
-        self.is_reserved = True
-
-    def cancel_reservation(self):
-        """Cancels the reservation for the time slot."""
-        self.is_reserved = False
-
-    def __repr__(self):
-        return f"TimeSlot({self.start_time} - {self.end_time}, Reserved: {self.is_reserved})"
