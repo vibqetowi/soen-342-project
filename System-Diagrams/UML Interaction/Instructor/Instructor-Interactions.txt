@@ -22,7 +22,7 @@ System -> System: generate_id()
 
 System -> UserCatalog: getInstance()
 System -> UserCatalog: addUser(id, email, hashed_password, *args)
-UserCatalog -> User **: create(*args)
+UserCatalog -> User **: create(*args, id)
 
 User --> UserCatalog: confirm
 UserCatalog -> Instructors: add(I)
@@ -33,6 +33,7 @@ System --> UI: confirm
 UI --> Instructor: confirm
 
 @enduml
+_____________________
 
 @startuml
 actor Instructor
@@ -65,6 +66,7 @@ else #LightPink else
     UI --> Instructor: error
 end
 @enduml
+_____________________
 
 @startuml
 title Update Location Availability
@@ -101,9 +103,10 @@ System -> LocationCatalog: getBranchesByCities(city_ids[])
 LocationCatalog --> System: return branches[]
 
 loop#SkyBlue #SkyBlue for each branch in branches[]
+    System -> System: generate_id()
     System -> UserCatalog: getInstance()
-    System -> UserCatalog: createInstructorBranchAvailability(instructor_id, branch_id)
-    UserCatalog -> IBA **: create(instructor_id, branch_id)
+    System -> UserCatalog: createInstructorBranchAvailability(instructor_id, branch_id, id)
+    UserCatalog -> IBA **: create(instructor_id, branch_id, id)
     IBA --> UserCatalog: confirm
     UserCatalog -> InstructorBranchAvailabilities: add(IBA)
     InstructorBranchAvailabilities --> UserCatalog: confirm
@@ -113,10 +116,10 @@ System --> UI: confirm
 UI --> Instructor: confirm
 
 @enduml
+_____________________
 
 @startuml
 title Accept Offerings - Create Public Offering
-
 actor Instructor
 participant UI
 participant "System\n<<singleton>>" as System
@@ -125,74 +128,59 @@ participant "LocationCatalog\n<<singleton>>" as LocationCatalog
 participant "OfferingCatalog\n<<singleton>>" as OfferingCatalog
 participant "IBA:InstructorBranchAvailability" as IBA
 participant "OIB:OfferedInBranch" as OIB
+participant "O:Offering" as Offering
 participant "PO:PublicOffering" as PublicOffering
 participant "ScheduleCatalog\n<<singleton>>" as ScheduleCatalog
 collections PublicOfferings
 
 note right of System
-This sequence diagram abstracts several complex methods for clarity:
-
-1. Finding suitable branches/offerings is abstracted but follows this SQL:
-   SELECT DISTINCT o.*
-   FROM instructors i
-   JOIN instructor_branch_availability iba 
-       ON i.user_id = iba.instructor_id
-   JOIN offered_in_branch oib 
-       ON iba.branch_id = oib.branch_id
-   JOIN offerings o 
-       ON oib.offering_id = o.offering_id
-   WHERE i.user_id = ? 
-       AND o.lesson_type = i.specialization;
-
-2. Schedule conflict checking is abstracted
-3. Schedule updating is abstracted
+Timeslot validation and reservation process are defined elsewhere
 end note
 
 autonumber
 Instructor -> UI: handleUserInput(*args)
 UI -> System: findSuitableOfferings(instructor_id, specialization)
-
-System -> SO **: create()
+System -> System: generate_id()
+System -> SO **: create(id)
 SO --> System: confirm
-
 System -> LocationCatalog: getInstance()
 System -> LocationCatalog: findSuitableBranches(instructor_id)
 LocationCatalog -> IBA: findSuitableBranches(instructor_id)
 IBA --> LocationCatalog: return List<branch_id>
 LocationCatalog --> System: return List<branch_id>
-
 System -> OfferingCatalog: getInstance()
 System -> OfferingCatalog: findSuitableOfferings(List<branch_id>, specialization, SO)
 OfferingCatalog -> OIB: findSuitableOfferings(List<branch_id>, specialization, SO)
 OIB --> OfferingCatalog: return SO
 OfferingCatalog --> System: return SO
 
-alt#lightyellow  #lightyellow SO not empty
-    loop#lightblue  #lightblue while Instructor selects to continue
+alt#lightyellow #lightyellow SO not empty
+    loop#lightblue #lightblue while Instructor selects to continue
         System --> UI: return SO
         UI --> Instructor: displayOfferings()
         Instructor -> UI: selectOffering(offering_id)
         UI -> System: selectOffering(offering_id)
         
-        System -> ScheduleCatalog: getInstance()
-        System -> ScheduleCatalog: checkScheduleConflict(instructor_id, offering_id)
-        ScheduleCatalog --> System: return conflict_exists
+        System -> OfferingCatalog: getOffering(offering_id)
+        OfferingCatalog -> Offering: getStartAndEndTime()
+        Offering --> System: return (start_time, end_time)
         
-        alt#mistyrose  #mistyrose schedule conflict exists
-            System --> UI: error
+        ' New validation flow
+        System -> System: validateTimeSlots(  start_time,  end_time,  instructor.schedule_id)
+        
+        alt#mistyrose #mistyrose validation failed
+            System --> UI: error "Timeslot unavailable"
             UI --> Instructor: error
-        else #DFF5E4 no conflict
-            System -> OfferingCatalog: getInstance()
-            System -> OfferingCatalog: createPublicOffering(instructor_id, offering_id)
-            OfferingCatalog -> PublicOffering **: create(instructor_id, offering_id)
+        else #DFF5E4 validation successful
+            System -> System: generate_id()
+            System -> OfferingCatalog: createPublicOffering(instructor_id, offering_id, id)
+            OfferingCatalog -> PublicOffering **: create(instructor_id, offering_id, id)
             PublicOffering --> OfferingCatalog: confirm
             OfferingCatalog -> PublicOfferings: add(PO)
             PublicOfferings --> OfferingCatalog: confirm
-            OfferingCatalog --> System: confirm
             
-            System -> ScheduleCatalog: getInstance()
-            System -> ScheduleCatalog: updateSchedule(instructor.schedule_id)
-            ScheduleCatalog --> System: confirm
+            ' New reservation flow
+            System -> System: reserveTimeSlots(  validTimeSlotIds,  public_offering_id)
             
             System --> UI: confirm
             UI --> Instructor: prompt
@@ -203,6 +191,7 @@ else SO empty
     UI --> Instructor: error
 end
 @enduml
+_____________________
 
 @startuml
 title Cancel Class (PublicOffering)
@@ -269,3 +258,4 @@ else List<PO> empty
 end
 
 @enduml
+_____________________

@@ -1,14 +1,17 @@
 @startuml
-title Create Offering and Assign to Branches
+title Create Offering and Validate Non-Overlapping Timeslots
+
 actor Admin
 participant "System\n<<singleton>>" as System
 participant "OfferingCatalog\n<<singleton>>" as OfferingCatalog
+participant "LocationCatalog\n<<singleton>>" as LocationCatalog
 participant "O:Offering" as Offering
+participant "B:Branch" as Branch
 collections "Offerings" as Offerings
 collections "OfferedInBranch" as OfferedInBranch
 
 note right of System
-Not showing error scenarios
+Checking for timeslot overlap was defined in system interactions UML
 end note
 
 autonumber
@@ -16,21 +19,35 @@ autonumber
 Admin -> System: startCreateOffering(*args, List<branch_id>)
 System -> System: validateAdminAccess()
 System -> System: generateId()
-note right: System generates unique ID
 
 System -> OfferingCatalog: getInstance()
-System -> OfferingCatalog: createOffering(id, *args)
-OfferingCatalog -> Offering **: create(id, *args)
-Offering --> OfferingCatalog: confirm
-OfferingCatalog -> Offerings: add(O)
-Offerings --> OfferingCatalog: confirm
+System -> LocationCatalog: getInstance()
 
-loop#lightblue #lightblue for each branch_id in branch_ids
-    System -> OfferedInBranch: add(branch_id, offering_id)
-    OfferedInBranch --> System: confirm
+loop#lightgreen #lightgreen for each branch_id in branch_ids
+    System -> LocationCatalog: getBranch(branch_id)
+    LocationCatalog -> Branch: getBranchOfferings()
+    Branch --> System: List<Offering>
+    
+    System -> System: validateTimeSlots(start_time, end_time, schedule_id)
 end
 
-System --> Admin: confirm
+alt#Pink #LightPink time slot overlap detected
+    System --> Admin: error: time slot conflict
+else no conflicts
+    System -> OfferingCatalog: createOffering(id, *args)
+    OfferingCatalog -> Offering **: create(id, *args)
+    Offering --> OfferingCatalog: confirm
+    OfferingCatalog -> Offerings: add(O)
+    Offerings --> OfferingCatalog: confirm
+    
+    loop#lightblue #lightblue for each branch_id in branch_ids
+        System -> OfferedInBranch: add(branch_id, offering_id)
+        OfferedInBranch --> System: confirm
+    end
+    
+    System --> Admin: confirm
+end
+
 @enduml
 ______________________________
 
@@ -40,6 +57,7 @@ actor Admin
 participant "System\n<<singleton>>" as System
 participant "LocationCatalog\n<<singleton>>" as LocationCatalog
 participant "L:Location" as Location
+collections Locations
 
 note over LocationCatalog
 Location is a generic type representing
@@ -49,6 +67,7 @@ end note
 note right of System
 parent_location_id may be null (for Province)
 *args used for brevity
+abstracting validating a location hierarchy
 end note
 
 autonumber
@@ -56,13 +75,15 @@ autonumber
 Admin -> System: createLocation(parent_location_id, *args)
 System -> System: validateAdminAccess()
 System -> System: generateId()
-note right: System generates unique ID
 
 System -> LocationCatalog: getInstance()
 System -> LocationCatalog: addLocation(id, parent_location_id, *args)
 LocationCatalog -> Location **: create(id, parent_location_id, *args)
-LocationCatalog -> LocationCatalog: validateLocationHierarchy(L)
 Location --> LocationCatalog: confirm
+LocationCatalog -> LocationCatalog: validateLocationHierarchy()
+LocationCatalog --> Locations: add(L)
+Locations --> LocationCatalog: confirm
+LocationCatalog --> System: confirm
 System --> Admin: confirm
 @enduml
 ______________________________
@@ -75,9 +96,9 @@ participant "UserCatalog\n<<singleton>>" as UserCatalog
 participant "U:User" as User
 
 note over UI
-Generic User type encompassesboth Client and Instructor
-
+Generic User type encompasses both Client and Instructor
 Abstracting off error handling
+all user types can edit themselves, the flow is basically the same except for authentication
 end note
 
 title Delete User
@@ -108,6 +129,8 @@ participant "U:User" as User
 note over UI
 Using generic user notation
 We also assume absence of errors 
+
+all user types can delete themselves, the flow is basically the same except for authentication
 end note
 
 title Edit User

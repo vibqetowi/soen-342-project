@@ -53,7 +53,8 @@ end
 
 System -> UserCatalog: getInstance()
 System -> UserCatalog: addUser(*args)
-UserCatalog -> User **: create(*args)
+System -> System: generate_id()
+UserCatalog -> User **: create(*args, id)
 User --> UserCatalog: confirm
 UserCatalog -> Clients: add(C)
 Clients --> UserCatalog: confirm
@@ -63,6 +64,7 @@ System --> UI: confirm
 UI --> Client: confirm
 
 @enduml
+_________________________________
 
 @startuml
 actor Client
@@ -95,6 +97,7 @@ else #lightpink
     UI --> Client: error
 end
 @enduml
+_________________________________
 
 @startuml
 title Client Make Booking
@@ -114,9 +117,10 @@ collections Bookings
 note right of System
 Abstracted methods:
 - Search query processing
-- Schedule conflict algorithms
 - Notification sending
 - Capacity calculations
+
+Schedule validation defined elsewhere
 
 Clients can make bookings for themselves or their child if applicable
 children are not allowed to make their own bookings
@@ -129,7 +133,9 @@ UI -> System: makeBooking(search_query)
 
 System -> UserCatalog: getInstance()
 System -> UserCatalog: getUser(client_id)
-UserCatalog --> System: return Client
+UserCatalog -> UserCatalog: find(client_id)
+UserCatalog --> System: return C:Client
+note right: omitting the get age flow
 
 alt#e6e6fa #e6e6fa age < 18
     System --> UI: error
@@ -171,28 +177,26 @@ else
             PublicOffering --> System: return capacity
 
             alt#lightblue #lightblue capacity > 0
-                System -> PublicOffering: getTimeslots()
-                PublicOffering --> System: return timeslots
-                System -> ScheduleCatalog: getInstance()
-                System -> ScheduleCatalog: getClientSchedule(booked_for_client_id)
-                ScheduleCatalog --> System: return S:Schedule
-                System -> Schedule: getTimeSlots()
-                Schedule --> System: return timeSlots
-                System -> System: checkOverlap(timeslots, timeSlots)
+                System -> PublicOffering: getStartAndEndTime()
+                PublicOffering --> System: return (start_time, end_time)
+                
+                ' New validation flow
+                System -> System: validateTimeSlots(  start_time,  end_time,  client.schedule_id)
 
-                alt#mistyrose #mistyrose schedule conflict exists
-                    System --> UI: error
+                alt#mistyrose #mistyrose validation failed
+                    System --> UI: error "Timeslot unavailable"
                     UI --> Client: error "schedule conflict"
                 else
                     System -> BookingCatalog: getInstance()
-                    System -> BookingCatalog: createBooking(client_id, booked_for_client_id, offering_id)
-                    BookingCatalog -> Booking **: create(client_id, booked_for_client_id, offering_id)
+                    System -> System: generate_id()
+                    System -> BookingCatalog: createBooking(client_id, booked_for_client_id, offering_id, id)
+                    BookingCatalog -> Booking **: create(client_id, booked_for_client_id, offering_id, id)
                     Booking --> BookingCatalog: confirm
                     BookingCatalog -> Bookings: add(B)
                     Bookings --> BookingCatalog: confirm
                     
-                    System -> Schedule: addBooking(B)
-                    Schedule --> System: confirm
+                    ' New reservation flow
+                    System -> System: reserveTimeSlots(  validTimeSlotIds,  public_offering_id)
                     
                     System --> UI: confirm
                     UI --> Client: displayBookingConfirmation()
@@ -211,6 +215,7 @@ else
 end
 
 @enduml
+_________________________________
 
 @startuml
 title Cancel Booking
@@ -269,3 +274,4 @@ loop#LightBlue #LightBlue foreach selected booking
     UI --> Client: displayCancellationConfirmation()
 end
 @enduml
+_________________________________
