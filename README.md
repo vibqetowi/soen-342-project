@@ -36,12 +36,8 @@ Below is a relational model built with DBDiagram to provide persistence to the a
 
 [View Interactive Database Schema](https://dbdiagram.io/e/671bc56d97a66db9a34ae6a3/6733d1c6e9daa85aca3a306c)
 
-We provide a screenshot as a backup but do not at all guarantee the screenshot is up to date, plus it is missing interactive features. Please use the live version.
-![Relational-Model](System-Diagrams/Relational-Model-Possibly-Outdated.png)
 
 ## Bonus Developments
-
-these are in the UML but may or may not be finished for grading
-
-- Creating the UI
-- The Policy package
+These were not implemented as they were not required explicitely
+- Creating a GUI
+- Implementing access control and auditing

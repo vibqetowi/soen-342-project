@@ -1,68 +1,9 @@
 @startuml
 title UML Package Diagram
 
-package Policy #DFF5E4 {
-    class Permission {
-        +permission_id: UUID <<PK>>
-        +name: String <<unique>>
-        +action_type: String
-        +getAllowedActions(): Set<String>
-        +isValidFor(resource: Object): Boolean
-    }
-
-    class UserPermission {
-        +{permission_id, table_name, record_id} <<PK>>
-        +permission_id: UUID <<FK>>
-        +table_name: String
-        +record_id: UUID
-        +validate(): Boolean
-    }
-
-    class ResourcePermission {
-        +{permission_id, table_name, record_id} <<PK>>
-        +permission_id: UUID <<FK>>
-        +table_name: String
-        +record_id: UUID
-        +validate(): Boolean
-    }
-
-    class AccessControl {
-        +AUDIT_RETENTION_DAYS: Integer
-        -instance: AccessControl
-        -constructor()
-        +getInstance(): AccessControl
-        +validateAccess(user: User, resource: Object, action: Action): Boolean
-        +getPermissions(user: User): Set<Permission>
-        +validateUserPermissions(user: User, resource: Object, action: Action): Boolean
-        +validateResourceAccess(user: User, resource: Object): Boolean
-        +logAction(actor: User, action: String, target: Object, oldValue: JSON, newValue: JSON): void
-        -cleanupAuditLogs(): void
-    }
-
-    class AuditLog {
-        +log_id: UUID <<PK>>
-        +timestamp: DateTime
-        +table_name: String
-        +actor_id: UUID
-        +action_type: String
-        +target_table: String
-        +record_id: UUID
-        +old_value: JSON
-        +new_value: JSON
-        +metadata: JSON
-        +getAuditTrail(startDate: DateTime, endDate: DateTime): List<AuditLog>
-        +getActorHistory(actorId: UUID): List<AuditLog>
-        +getResourceHistory(tableNname: String, recordId: UUID): List<AuditLog>
-    }
-
-    Permission "1" --[#darkgreen,bold]-> "*" UserPermission
-    Permission "1" --[#darkgreen,bold]-> "*" ResourcePermission
-}
-
 package "Location" #pink {
     class LocationCatalog <<singleton>> {
         -locations: Map<UUID, Location>
-        -accessControl: AccessControl
         -instance: LocationCatalog
         -LocationCatalog() 
         +getInstance(): LocationCatalog
@@ -133,7 +74,6 @@ package "App" #lightgrey {
     }
 
     class System <<singleton>> {
-        -accessControl: AccessControl
         -instance: System
         -System() 
         +getInstance(): System
@@ -150,7 +90,6 @@ package "App" #lightgrey {
 package "Users" #lightyellow {
     class UserCatalog <<singleton>> {
         -users: Map<UUID, User>
-        -accessControl: AccessControl
         -instance: UserCatalog
         -UserCatalog() 
         +getInstance(): UserCatalog
@@ -167,15 +106,12 @@ package "Users" #lightyellow {
         #email: String
         #hashed_password: String
         #name: String
-        +getPermissions(): Set<Permission>
         +canAccess(resource: Object, action: Action): Boolean
-        #{abstract} getTypeSpecificPermissions(): Set<Permission>
         +updateProfile(data: Map): void
         +changePassword(oldPassword: String, newPassword: String): Boolean
     }
 
     class Administrator {
-        #getTypeSpecificPermissions(): Set<Permission>
         +validateAccess(resource: Object, action: Action): Boolean
         +getSystemAccessLogs(): List<AuditLog>
         +manageUsers(): void
@@ -185,7 +121,6 @@ package "Users" #lightyellow {
         -phone: String
         -specialization: String
         -schedule_id: UUID <<FK>>
-        #getTypeSpecificPermissions(): Set<Permission>
         +validateAccess(resource: Object, action: Action): Boolean
         +getSchedule(): Schedule
         +updateAvailability(timeSlots: List<TimeSlot>): void
@@ -196,7 +131,6 @@ package "Users" #lightyellow {
         -schedule_id: UUID <<FK>>
         -age: Integer
         -guardian_id: UUID,Null <<FK>>
-        #getTypeSpecificPermissions(): Set<Permission>
         +validateAccess(resource: Object, action: Action): Boolean
         +getSchedule(): Schedule
         +getBookings(): List<Booking>
@@ -214,7 +148,6 @@ package "Users" #lightyellow {
 package "Scheduling" #lightblue {
     class ScheduleCatalog <<singleton>> {
         -instance: ScheduleCatalog
-        -accessControl: AccessControl
         -ScheduleCatalog() 
         +getInstance(): ScheduleCatalog
         +getSchedule(id: UUID, user: User): Schedule
@@ -250,7 +183,6 @@ package "Scheduling" #lightblue {
 package "Offerings" #DFF5E4 {
     class OfferingCatalog <<singleton>> {
         -instance: OfferingCatalog
-        -accessControl: AccessControl
         -OfferingCatalog() 
         +getInstance(): OfferingCatalog
         +createOffering(offering: Offering, user: User): void
@@ -298,7 +230,6 @@ package "Offerings" #DFF5E4 {
 package "Bookings" #E6E6FA {
     class BookingCatalog <<singleton>> {
         -instance: BookingCatalog
-        -accessControl: AccessControl
         -BookingCatalog() 
         +getInstance(): BookingCatalog
         +createBooking(booking: Booking, user: User): void
@@ -327,9 +258,6 @@ Instructor "1" -[#orange,bold]-> "*" PublicOffering : teaches
 Branch "1" -[#red,bold]-> "1" Schedule : has 
 Schedule "1" <-[#orange,bold]- "1" User : has
 PublicOffering "1" -[#green,bold]-> "*" TimeSlot: reserves 
-User "*" --[#orange,bold]-> "*" Permission : has 
-AccessControl -[#darkgreen,bold]-> AuditLog : manages 
-System "1" -[#black,bold]-> "1" AccessControl : uses 
 
 ' Association Classes
 (Client, PublicOffering).. Booking
@@ -343,31 +271,13 @@ System "1" -[#black,bold]-> "1" UserCatalog : manages
 System "1" -[#black,bold]-> "1" OfferingCatalog : manages 
 System "1" -[#black,bold]-> "1" BookingCatalog : manages 
 
-note top of AccessControl
-Centralized access control:
-- Permission-based access control
-- Resource-level permissions
-- User-level permissions
-- Audit logging with retention policy (AUDIT_RETENTION_DAYS)
-- Polymorphic permissions system
-- Comprehensive action tracking
-_________
-Audit Trail:
-- Tracks all system actions
-- Retention policy: AUDIT_RETENTION_DAYS
-- Stores before/after values
-- Includes metadata (IP, user agent)
-- Supports compliance requirements
-- Historical tracking
-end note
-
 note top of Users
 Shared permissions:
 - Read/Write own account
 - Read public offerings
 
 Administrator specific:
-- Full system access (READ_ALL_RECORDS, WRITE_ALL_RECORDS)
+- Full system access
 - Can manage all resources
 - Access to audit logs
 - User management

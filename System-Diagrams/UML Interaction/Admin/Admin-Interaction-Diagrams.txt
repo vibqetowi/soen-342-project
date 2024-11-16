@@ -1,190 +1,247 @@
 @startuml
 actor Admin
-participant System
-collections OfferingCatalog
-participant "O:Offering" 
+participant UI
+participant "System\n<<singleton>>" as System
+participant "OfferingCatalog\n<<singleton>>" as OfferingCatalog
+participant "O:Offering" as Offering
 collections Offerings
 
 title Create Offering
 
 autonumber
 
-Admin -> System : createOffering(offering_id : Integer, lesson_type : String, mode : String)
-System -> OfferingCatalog: newOffering(*args)
-OfferingCatalog -> "O:Offering" **: create(*args)
-"O:Offering" --> OfferingCatalog: Confirm
+Admin -> UI: handleUserInput(offering_id, lesson_type, mode)
+UI -> System: createOffering(*args)
+
+System -> System: validateAdminAccess()
+System -> OfferingCatalog: getInstance()
+System -> OfferingCatalog: createOffering(*args)
+OfferingCatalog -> Offering **: create(*args)
+Offering --> OfferingCatalog: confirm
 OfferingCatalog -> Offerings: add(O)
-Offerings --> OfferingCatalog: Confirm
-OfferingCatalog --> System : Confirm 
-System --> Admin : Confirm
+Offerings --> OfferingCatalog: confirm
+OfferingCatalog --> System: confirm 
+System --> UI: confirm
+UI --> Admin: confirm
 
 @enduml
 
-__________________________________________
-
 @startuml
 actor Admin
-participant System
-collections UserCatalog
-participant "U:User"
+participant UI
+participant "System\n<<singleton>>" as System
+participant "UserCatalog\n<<singleton>>" as UserCatalog
+participant "U:User" as User
 
-note over of UserCatalog
-I write User as generic datatype
-there's no meaningful difference 
-between client and instructor here
+note over UI
+Generic User type encompassesboth Client and Instructor
+
+Abstracting off error handling
 end note
 
-title delete User
+title Delete User
 
 autonumber
 
-Admin -> System : deleteUser(id)
-System -> UserCatalog : find(id)
-UserCatalog --> System : return U:User
-System -> UserCatalog : confirmDelete(U)
-UserCatalog -> "U:User" !! : delete
-UserCatalog --> System : Confirm
-System --> Admin : Confirm
+Admin -> UI: handleUserInput(user_id)
+UI -> System: deleteUser(id)
+System -> System: validateAdminAccess()
+System -> UserCatalog: getInstance()
+System -> UserCatalog: getUser(id)
+UserCatalog -> UserCatalog: find(id)
+UserCatalog --> System: return U:User
+System -> User !!: delete
+System --> UI: confirm
+UI --> Admin: confirm
 
 @enduml
 
-__________________________________________
-
 @startuml
 actor Admin
-participant System
-collections UserCatalog
-participant "U:User"
+participant UI
+participant "System\n<<singleton>>" as System
+participant "UserCatalog\n<<singleton>>" as UserCatalog
+participant "U:User" as User
 
-note over of UserCatalog
-I write User as generic datatype
-there's no meaningful difference 
-between client and instructor here
+note over UI
+Using generic user notation
+We also assume absence of errors 
 end note
 
-note over of System
-I write *args to suggest any possible edits
-end note
-
-title edit User
+title Edit User
 
 autonumber
 
-Admin -> System : editUser(id,*args)
-System -> UserCatalog : find(id)
-UserCatalog --> System : return U:User
-System -> UserCatalog : confirmEdit(U)
-UserCatalog -> "U:User": editRecord(*args)
-"U:User" --> UserCatalog : Confirm  
-UserCatalog --> System : Confirm
-System --> Admin : Confirm
+Admin -> UI: handleUserInput(user_id, *args)
+UI -> System: editUser(id, *args)
+
+System -> System: validateAdminAccess()
+System -> UserCatalog: getInstance()
+System -> UserCatalog: getUser(id)
+UserCatalog -> UserCatalog: find(id)
+UserCatalog --> System: return U:User
+
+System -> User: updateProfile(*args)
+User --> System: confirm
+System --> UI: confirm
+UI --> Admin: confirm
+@enduml
+
+@startuml
+actor Admin
+participant UI
+participant "System\n<<singleton>>" as System
+participant "BookingCatalog\n<<singleton>>" as BookingCatalog
+participant "B:Booking" as Booking
+
+title Delete Booking
+note over UI
+Abstracting off error handling and omitting user notification
+end note
+
+autonumber
+
+Admin -> UI: handleUserInput(booking_id)
+UI -> System: deleteBooking(id)
+
+    System -> System: validateAdminAccess()
+    System -> BookingCatalog: getInstance()
+    System -> BookingCatalog: getBooking(id)
+    BookingCatalog -> BookingCatalog: find(id)
+    BookingCatalog --> System: return B:Booking
+    System -> Booking !!: delete
+    System --> UI: confirm
+    UI --> Admin: confirm
 
 @enduml
 
-__________________________________________
-
 @startuml
 actor Admin
-participant System
-collections BookingCatalog
-participant "B:Booking"
+participant UI
+participant "System\n<<singleton>>" as System
+participant "BookingCatalog\n<<singleton>>" as BookingCatalog
+participant "B:Booking" as Booking
 
-title delete Booking
+title Edit Booking
+
+note over UI
+Abstracting off error handling
+end note
 
 autonumber
 
-Admin -> System : deleteBooking(id)
-System -> BookingCatalog : find(id)
-BookingCatalog --> System : return B:Booking
-System -> BookingCatalog : confirmDelete(B)
-BookingCatalog -> "B:Booking" !! : delete
-BookingCatalog --> System : Confirm
-System --> Admin : Confirm
+Admin -> UI: handleUserInput(booking_id, *args)
+UI -> System: editBooking(id, *args)
 
+System -> System: validateAdminAccess()
+System -> BookingCatalog: getInstance()
+System -> BookingCatalog: getBooking(id)
+BookingCatalog -> BookingCatalog: find(id)
+BookingCatalog --> System: return B:Booking
+
+System -> Booking: editRecord(*args)
+Booking --> System: confirm
+System --> UI: confirm
+UI --> Admin: confirm
 @enduml
 
-__________________________________________
-
 @startuml
 actor Admin
-participant System
-collections BookingCatalog
-participant "B:Booking"
+participant UI
+participant "System\n<<singleton>>" as System
+participant "OfferingCatalog\n<<singleton>>" as OfferingCatalog
+participant "O:Offering" as Offering
 
-note over of System
-I write *args to suggest any possible edits
+title Delete Base Offering
+
+note over UI
+Assuming all records exist and are valid
 end note
-
-title edit Booking
 
 autonumber
 
-Admin -> System : editBooking(id, *args)
-System -> BookingCatalog : find(id)
-BookingCatalog --> System : return B:Booking
-System -> BookingCatalog : confirmEdit(B)
-BookingCatalog -> "B:Booking" : editRecord(*args)
-"B:Booking" --> BookingCatalog : Confirm  
-BookingCatalog --> System : Confirm
-System --> Admin : Confirm
+Admin -> UI: handleUserInput(offering_id)
+UI -> System: deleteOffering(id)
 
+System -> System: validateAdminAccess()
+System -> OfferingCatalog: getInstance()
+System -> OfferingCatalog: getOffering(id)
+OfferingCatalog -> OfferingCatalog: find(id)
+OfferingCatalog --> System: return O:Offering
+System -> Offering !!: delete
+System --> UI: confirm
+UI --> Admin: confirm
 @enduml
 
-__________________________________________
-
 @startuml
 actor Admin
-participant System
-collections OfferingCatalog
-participant "O:Offering"
+participant UI
+participant "System\n<<singleton>>" as System
+participant "OfferingCatalog\n<<singleton>>" as OfferingCatalog
+participant "BookingCatalog\n<<singleton>>" as BookingCatalog
+participant "PO:PublicOffering" as PublicOffering
+participant "B:Booking" as Booking
 
-note over of OfferingCatalog
-There is no meaningful difference between 
-Public Offering and Offering here
+title Delete Public Offering
+
+note over UI
+Assuming all records exist and are valid
+Omitting user notifications
 end note
-
-title delete Offering
 
 autonumber
 
-Admin -> System : deleteOffering(id)
-System -> OfferingCatalog : find(id)
-OfferingCatalog --> System : return O:Offering
-System -> OfferingCatalog : confirmDelete(O)
-OfferingCatalog -> "O:Offering" !! : delete
-OfferingCatalog --> System : Confirm
-System --> Admin : Confirm
+Admin -> UI: handleUserInput(public_offering_id)
+UI -> System: deletePublicOffering(id)
 
+System -> System: validateAdminAccess()
+System -> OfferingCatalog: getInstance()
+System -> OfferingCatalog: getPublicOffering(id)
+OfferingCatalog -> OfferingCatalog: find(id)
+OfferingCatalog --> System: return PO:PublicOffering
+
+System -> BookingCatalog: getInstance()
+System -> BookingCatalog: getBookingsByOffering(id)
+BookingCatalog -> BookingCatalog: find(id)
+BookingCatalog --> System: return List<Booking>
+
+loop#e6e6fa #e6e6fa for each booking in List<Booking>
+    System -> Booking !!: delete
+end
+
+System -> PublicOffering !!: delete
+System --> UI: confirm
+UI --> Admin: confirm
 @enduml
 
-__________________________________________
-
 @startuml
 actor Admin
-participant System
-collections OfferingCatalog
-participant "O:Offering"
+participant UI
+participant "System\n<<singleton>>" as System
+participant "OfferingCatalog\n<<singleton>>" as OfferingCatalog
+participant "O:Offering" as Offering
 
-note over of OfferingCatalog
-There is no meaningful difference between 
-Public Offering and Offering here
+note over OfferingCatalog
+Generic Offering type encompasses
+both Public and Base Offerings
+Abstracting off error handling
 end note
 
-note over of System
-I write *args to suggest any possible edits
-end note
-
-title edit Offering
+title Edit Offering
 
 autonumber
 
-Admin -> System : editOffering(id, *args)
-System -> OfferingCatalog : find(id)
-OfferingCatalog --> System : return O:Offering
-System -> OfferingCatalog : confirmEdit(O)
-OfferingCatalog -> "O:Offering" : editRecord(*args)
-"O:Offering" --> OfferingCatalog : Confirm  
-OfferingCatalog --> System : Confirm
-System --> Admin : Confirm
+Admin -> UI: handleUserInput(offering_id, *args)
+UI -> System: editOffering(id, *args)
 
+System -> System: validateAdminAccess()
+System -> OfferingCatalog: getInstance()
+System -> OfferingCatalog: getOffering(id)
+OfferingCatalog -> OfferingCatalog: find(id)
+OfferingCatalog --> System: return O:Offering
+
+System -> Offering: editRecord(*args)
+Offering --> System: confirm
+System --> UI: confirm
+UI --> Admin: confirm
 @enduml
