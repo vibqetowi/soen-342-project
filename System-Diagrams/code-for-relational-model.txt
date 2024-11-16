@@ -1,0 +1,155 @@
+
+
+// Location Package - Using concrete inheritance
+Table provinces {
+  location_id char(36) [pk]
+  name varchar
+}
+
+Table cities {
+  location_id char(36) [pk]
+  name varchar
+  parent_location_id char(36)
+}
+
+Table branches {
+  location_id char(36) [pk]
+  name varchar
+  schedule_id char(36)
+  parent_location_id char(36)
+}
+
+// Users Package - Using concrete inheritance
+Table administrators {
+  user_id char(36) [pk]
+  email varchar [unique]
+  hashed_password varchar
+  name varchar
+}
+
+Table instructors {
+  user_id char(36) [pk]
+  email varchar [unique]
+  hashed_password varchar
+  name varchar
+  phone varchar
+  specialization varchar
+  schedule_id char(36)
+}
+
+Table clients {
+  user_id char(36) [pk]
+  email varchar [unique]
+  hashed_password varchar
+  name varchar
+  schedule_id char(36)
+  age integer
+  guardian_id char(36)
+}
+
+// Scheduling Package
+Table schedules {
+  schedule_id char(36) [pk]
+  owner_type varchar    // 'instructors', 'clients', 'branches'
+  owner_id char(36)
+
+  indexes {
+    (owner_id,owner_type)
+  }
+}
+
+Table time_slots {
+  schedule_id char(36)
+  start_time timestamp
+  end_time timestamp
+  reserved_by_public_offering_id char(36)
+  is_reserved boolean
+  
+  indexes {
+    (schedule_id, start_time) [pk]
+  }
+}
+
+// Offerings Package
+Table offerings {
+  offering_id char(36) [pk]
+  lesson_type varchar
+  mode varchar
+  capacity integer
+  duration integer
+}
+
+Table public_offerings {
+  offering_id char(36) [pk]
+  instructor_id char(36)
+  schedule_id char(36)
+  lesson_type varchar
+  mode varchar
+  capacity integer
+  
+  indexes {
+    (offering_id, instructor_id) [pk]
+  }
+}
+
+// Association Tables
+Table instructor_branch_availability {
+  instructor_id char(36)
+  branch_id char(36)
+  
+  indexes {
+    (instructor_id, branch_id) [pk]
+  }
+}
+
+Table offered_in_branch {
+  offering_id char(36)
+  branch_id char(36)
+  
+  indexes {
+    (offering_id, branch_id) [pk]
+  }
+}
+
+Table bookings {
+  booked_by_client_id char(36)
+  public_offering_id char(36)
+  booked_for_client_id char(36)
+  
+  indexes {
+    (booked_by_client_id, public_offering_id) [pk]
+  }
+}
+
+// References grouped by package
+
+// Location Package References
+Ref: cities.parent_location_id > provinces.location_id [delete: cascade]
+Ref: branches.parent_location_id > cities.location_id [delete: cascade]
+Ref: branches.schedule_id - schedules.schedule_id [delete: cascade]
+
+// Users Package References
+Ref: instructors.schedule_id - schedules.schedule_id [delete: cascade]
+Ref: clients.schedule_id - schedules.schedule_id [delete: cascade]
+Ref: clients.guardian_id < clients.user_id 
+
+// Scheduling Package References
+Ref: time_slots.schedule_id > schedules.schedule_id [delete: cascade]
+Ref: time_slots.reserved_by_public_offering_id > public_offerings.offering_id [delete: cascade]
+Ref: schedules.owner_id - instructors.schedule_id [delete:cascade]
+Ref: schedules.owner_id - clients.schedule_id [delete:cascade]
+Ref: schedules.owner_id - branches.schedule_id [delete:cascade]
+
+// Offerings Package References
+Ref: public_offerings.offering_id - offerings.offering_id [delete: cascade]
+Ref: public_offerings.instructor_id > instructors.user_id [delete: cascade]
+Ref: public_offerings.schedule_id - schedules.schedule_id [delete: cascade]
+
+// Association Tables References - All should cascade on delete
+Ref: instructor_branch_availability.instructor_id > instructors.user_id [delete: cascade]
+Ref: instructor_branch_availability.branch_id > branches.location_id [delete: cascade]
+Ref: offered_in_branch.offering_id > offerings.offering_id [delete: cascade]
+Ref: offered_in_branch.branch_id > branches.location_id [delete: cascade]
+Ref: bookings.booked_by_client_id > clients.user_id [delete: cascade]
+Ref: bookings.public_offering_id > public_offerings.offering_id [delete: cascade]
+Ref: bookings.booked_for_client_id > clients.user_id [delete: cascade]

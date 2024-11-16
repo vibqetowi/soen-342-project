@@ -24,9 +24,11 @@ Gymmmy offers it's users a flexible and practical to book fitness classes.
 
 The UML Diagrams are written in PlantUML, both code and generated images are present in UML-Diagrams folder
 
-### Main Structure:
+### Use Case Diagram:
 
-Below is an overview of the packages and how they relate to each other. You may notice the image changing between sprints, that is normal.
+![alt text](System-Diagrams/Usecase-Diagram.png)
+
+### Package Diagram:
 
 ![1729458777114](./System-Diagrams/Package-Diagram.png)
 
@@ -34,10 +36,16 @@ Below is an overview of the packages and how they relate to each other. You may 
 
 Below is a relational model built with DBDiagram to provide persistence to the application. Github does not support embedding so please use the URL.
 
+
+
+<iframe width="1920" height="1080" src='https://dbdiagram.io/e/671bc56d97a66db9a34ae6a3/6733d1c6e9daa85aca3a306c'> </iframe>
+
+
 [View Interactive Database Schema](https://dbdiagram.io/e/671bc56d97a66db9a34ae6a3/6733d1c6e9daa85aca3a306c)
 
-
 ## Bonus Developments
+
 These were not implemented as they were not required explicitely
+
 - Creating a GUI
 - Implementing access control and auditing
