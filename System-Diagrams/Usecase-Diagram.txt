@@ -1,0 +1,79 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+
+' Actor styling
+actor "Public User" as Public #gray
+actor Client #green
+actor Instructor #blue
+actor Administrator #red
+
+rectangle "Shared Features" {
+    usecase "Manage Own Account" as ManageAccount
+    usecase "View Public Offerings" as ViewOfferings
+    usecase "Register Account" as Register
+    usecase "View Branch Locations" as ViewLocations
+}
+
+rectangle "Client Features" {
+    usecase "Manage Own Bookings" as ManageBookings
+    usecase "Create Booking" as CreateBooking
+    usecase "Cancel Booking" as CancelBooking
+    usecase "Manage Guardian Relationship" as ManageGuardian
+    usecase "View Instructor Contact Info" as ViewInstructor
+}
+
+rectangle "Instructor Features" {
+    usecase "Accept Offerings" as AcceptOfferings
+    usecase "Manage Own Classes" as ManageClasses
+    usecase "Cancel Class" as CancelClass
+    usecase "View Own Clients" as ViewOwnClients
+    usecase "View Private Offerings" as ViewPrivateOfferings
+    usecase "Manage Own Bookings" as ViewOwnBookings
+}
+
+rectangle "Admin Features" {
+    usecase "Full System Access" as FullAccess
+    usecase "Read All Records" as ReadAll
+    usecase "Write All Records" as WriteAll
+    usecase "View Audit Logs" as ViewLogs
+}
+
+' Public connections (gray)
+Public --> Register #line:gray;line.bold
+Public --> ViewOfferings #line:gray;line.bold
+Public --> ViewLocations #line:gray;line.bold
+
+' Client connections (green)
+Client --> ManageAccount #line:green;line.bold
+Client --> ManageGuardian #line:green;line.bold
+Client --> ManageBookings #line:green;line.bold
+Client --> ViewLocations #line:green;line.bold
+
+' Instructor connections (blue)
+Instructor --> ManageAccount #line:blue;line.bold
+Instructor --> ViewPrivateOfferings #line:blue;line.bold
+Instructor --> ManageClasses #line:blue;line.bold
+
+' Admin connections (red)
+Administrator --> FullAccess #line:red;line.bold
+Administrator --> ManageAccount #line:red;line.bold
+
+' Include relationships (dotted lines with respective colors)
+ManageBookings ..> CreateBooking #line:green;line.dotted : includes
+ManageBookings ..> CancelBooking #line:green;line.dotted : includes
+ManageBookings ..> ViewOfferings #line:green;line.dotted : includes
+ManageBookings ..> ViewInstructor #line:green;line.dotted : includes
+
+ManageClasses ..> ViewOwnBookings #line:blue;line.dotted : includes
+ManageClasses ..> ViewOwnClients #line:blue;line.dotted : includes
+ManageClasses ..> CancelClass #line:blue;line.dotted : includes
+
+ViewPrivateOfferings ..> ViewOfferings #line:blue;line.dotted : includes
+ViewPrivateOfferings ..> AcceptOfferings #line:blue;line.dotted : includes
+
+FullAccess ..> ReadAll #line:red;line.dotted : includes
+FullAccess ..> WriteAll #line:red;line.dotted : includes
+FullAccess ..> ViewLogs #line:red;line.dotted : includes
+
+@enduml

@@ -1,0 +1,108 @@
+@startuml
+title Reserve Timeslots
+
+participant "System\n<<singleton>>" as System
+participant "ScheduleCatalog\n<<singleton>>" as ScheduleCatalog
+participant "S:Schedule" as Schedule
+participant "T:TimeSlot" as TimeSlot
+
+note right of System
+All System interactions are triggered by some other method
+
+Schedule owner can be:
+- Users (Client/Instructor)
+- Branches
+
+This diagram shows the reservation process:
+1. Receive pre-validated timeslot IDs
+2. Reserve all slots for the offering
+3. Commit transaction after all reservations
+end note
+
+autonumber
+
+System -> System: reserveTimeSlots(List<TimeSlotId>, public_offering_id, schedule_owner_id)
+
+System -> ScheduleCatalog: getInstance()
+System -> ScheduleCatalog: findScheduleByOwnerId(schedule_owner_id)
+ScheduleCatalog -> ScheduleCatalog: find(schedule_owner_id)
+ScheduleCatalog --> System: return S:Schedule
+
+loop#DFF5E4 #DFF5E4 for each timeslot_id
+    System -> Schedule: getTimeSlot(timeslot_id)
+    Schedule ->  Schedule: find(timeslot_id)
+    Schedule --> System: return T:TimeSlot
+    System -> TimeSlot: reserve(public_offering_id)
+    TimeSlot --> System: confirm
+end
+
+System --> System: return success
+
+@enduml
+__________________________________
+@startuml
+title Calculate and Verify Required Timeslots
+
+participant "System\n<<singleton>>" as System
+participant "OfferingCatalog\n<<singleton>>" as OfferingCatalog
+participant "PO:PublicOffering" as PublicOffering
+participant "ScheduleCatalog\n<<singleton>>" as ScheduleCatalog
+participant "S:Schedule" as Schedule
+participant "T:TimeSlot" as TimeSlot
+
+note right of System
+All System interactions are triggered by some other method
+
+Abstracted methods:
+- Composite PK construction for TimeSlot
+
+Validation process:
+1. Get offering time requirements
+2. Calculate required slots
+3. Verify all slots are available
+4. Return list of valid slot IDs
+
+All validations done before any
+reservations are attempted
+end note
+
+autonumber
+
+System -> System: validateTimeSlots(public_offering_id, schedule_owner_id)
+
+System -> OfferingCatalog: getInstance()
+System -> OfferingCatalog: getPublicOffering(public_offering_id)
+OfferingCatalog -> OfferingCatalog: find(public_offering_id)
+OfferingCatalog --> System: return PO:PublicOffering
+
+System -> PublicOffering: getStartAndEndTime()
+PublicOffering --> System: return (start_time, end_time)
+
+System -> System: calculate_required_timeslots(start_time, end_time)
+
+System -> ScheduleCatalog: getInstance()
+System -> ScheduleCatalog: findScheduleByOwnerId(schedule_owner_id)
+ScheduleCatalog -> ScheduleCatalog: find(schedule_owner_id)
+ScheduleCatalog --> System: return S:Schedule
+
+loop#lightblue #lightblue verify availability for each slot
+    System -> Schedule: getTimeSlot(schedule_id, slot.start_time)
+    Schedule --> System: return T:TimeSlot
+    System -> TimeSlot: isAvailable()
+    TimeSlot --> System: return availability
+    
+    alt#mistyrose #mistyrose !available
+        System --> System: return error "Timeslot unavailable"
+        break
+    end
+end
+
+alt#palegreen #palegreen all slots available
+    System --> System: return List<TimeSlotId>
+else #mistyrose
+    System --> System: return error
+end
+end 
+
+
+@enduml

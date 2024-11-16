@@ -196,7 +196,8 @@ package "Offerings" #DFF5E4 {
         -lesson_type: String
         -mode: String
         -capacity: Integer
-        -duration: Integer
+        -start_time: DateTime
+        -end_time: DateTime
         +getAvailableSlots(): Integer
         +isAvailable(): Boolean
         +getPublicOfferings(): List<PublicOffering>
