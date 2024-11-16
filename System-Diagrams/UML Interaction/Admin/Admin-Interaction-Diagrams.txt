@@ -1,30 +1,71 @@
 @startuml
+title Create Offering and Assign to Branches
 actor Admin
-participant UI
 participant "System\n<<singleton>>" as System
 participant "OfferingCatalog\n<<singleton>>" as OfferingCatalog
 participant "O:Offering" as Offering
-collections Offerings
+collections "Offerings" as Offerings
+collections "OfferedInBranch" as OfferedInBranch
 
-title Create Offering
+note right of System
+Not showing error scenarios
+end note
 
 autonumber
 
-Admin -> UI: handleUserInput(offering_id, lesson_type, mode)
-UI -> System: createOffering(*args)
-
+Admin -> System: startCreateOffering(*args, List<branch_id>)
 System -> System: validateAdminAccess()
+System -> System: generateId()
+note right: System generates unique ID
+
 System -> OfferingCatalog: getInstance()
-System -> OfferingCatalog: createOffering(*args)
-OfferingCatalog -> Offering **: create(*args)
+System -> OfferingCatalog: createOffering(id, *args)
+OfferingCatalog -> Offering **: create(id, *args)
 Offering --> OfferingCatalog: confirm
 OfferingCatalog -> Offerings: add(O)
 Offerings --> OfferingCatalog: confirm
-OfferingCatalog --> System: confirm 
-System --> UI: confirm
-UI --> Admin: confirm
 
+loop#lightblue #lightblue for each branch_id in branch_ids
+    System -> OfferedInBranch: add(branch_id, offering_id)
+    OfferedInBranch --> System: confirm
+end
+
+System --> Admin: confirm
 @enduml
+______________________________
+
+@startuml
+title Create Location
+actor Admin
+participant "System\n<<singleton>>" as System
+participant "LocationCatalog\n<<singleton>>" as LocationCatalog
+participant "L:Location" as Location
+
+note over LocationCatalog
+Location is a generic type representing
+all location subtypes (Province, City, Branch)
+end note
+
+note right of System
+parent_location_id may be null (for Province)
+*args used for brevity
+end note
+
+autonumber
+
+Admin -> System: createLocation(parent_location_id, *args)
+System -> System: validateAdminAccess()
+System -> System: generateId()
+note right: System generates unique ID
+
+System -> LocationCatalog: getInstance()
+System -> LocationCatalog: addLocation(id, parent_location_id, *args)
+LocationCatalog -> Location **: create(id, parent_location_id, *args)
+LocationCatalog -> LocationCatalog: validateLocationHierarchy(L)
+Location --> LocationCatalog: confirm
+System --> Admin: confirm
+@enduml
+______________________________
 
 @startuml
 actor Admin
@@ -55,6 +96,7 @@ System --> UI: confirm
 UI --> Admin: confirm
 
 @enduml
+______________________________
 
 @startuml
 actor Admin
@@ -86,6 +128,7 @@ User --> System: confirm
 System --> UI: confirm
 UI --> Admin: confirm
 @enduml
+______________________________
 
 @startuml
 actor Admin
@@ -114,6 +157,7 @@ UI -> System: deleteBooking(id)
     UI --> Admin: confirm
 
 @enduml
+______________________________
 
 @startuml
 actor Admin
@@ -144,6 +188,7 @@ Booking --> System: confirm
 System --> UI: confirm
 UI --> Admin: confirm
 @enduml
+______________________________
 
 @startuml
 actor Admin
@@ -172,6 +217,7 @@ System -> Offering !!: delete
 System --> UI: confirm
 UI --> Admin: confirm
 @enduml
+______________________________
 
 @startuml
 actor Admin
@@ -213,6 +259,7 @@ System -> PublicOffering !!: delete
 System --> UI: confirm
 UI --> Admin: confirm
 @enduml
+______________________________
 
 @startuml
 actor Admin
@@ -245,3 +292,4 @@ Offering --> System: confirm
 System --> UI: confirm
 UI --> Admin: confirm
 @enduml
+______________________________
