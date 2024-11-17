@@ -1,4 +1,5 @@
 # soen-342-project
+![videodemo](DemoSOEN342.mp4)
 
 ## Team Gymmy members:
 
