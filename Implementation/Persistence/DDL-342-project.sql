@@ -1,140 +1,96 @@
-CREATE TABLE "provinces" (
-  "location_id" char(36) PRIMARY KEY,
-  "name" varchar
+-- DROP EXISTING TABLES (if any) for a clean setup
+DROP TABLE IF EXISTS time_slots, schedules, bookings, public_offerings, offerings, branches, cities, provinces, administrators, instructors, clients, audit_logs CASCADE;
+
+-- Provinces table (no dependencies)
+CREATE TABLE provinces (
+    location_id CHAR(36) PRIMARY KEY,
+    name VARCHAR(255) UNIQUE NOT NULL
 );
 
-CREATE TABLE "cities" (
-  "location_id" char(36) PRIMARY KEY,
-  "name" varchar,
-  "parent_location_id" char(36)
+-- Cities table (depends on Provinces)
+CREATE TABLE cities (
+    location_id CHAR(36) PRIMARY KEY,
+    name VARCHAR(255) UNIQUE NOT NULL,
+    parent_location_id CHAR(36) REFERENCES provinces(location_id)
 );
 
-CREATE TABLE "branches" (
-  "location_id" char(36) PRIMARY KEY,
-  "name" varchar,
-  "schedule_id" char(36),
-  "parent_location_id" char(36)
+-- Administrators table (no dependencies)
+CREATE TABLE administrators (
+    user_id CHAR(36) PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    hashed_password VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL
 );
 
-CREATE TABLE "administrators" (
-  "user_id" char(36) PRIMARY KEY,
-  "email" varchar UNIQUE,
-  "hashed_password" varchar,
-  "name" varchar
+-- Schedules table (no dependencies)
+CREATE TABLE schedules (
+    schedule_id CHAR(36) PRIMARY KEY,
+    schedule_owner_id CHAR(36) NOT NULL,
+    schedule_owner_type VARCHAR(50) NOT NULL
 );
 
-CREATE TABLE "instructors" (
-  "user_id" char(36) PRIMARY KEY,
-  "email" varchar UNIQUE,
-  "hashed_password" varchar,
-  "name" varchar,
-  "phone" varchar,
-  "specialization" varchar,
-  "schedule_id" char(36)
+-- Instructors table (references Schedules)
+CREATE TABLE instructors (
+    user_id CHAR(36) PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    hashed_password VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    specialization VARCHAR(255),
+    phone VARCHAR(20),
+    schedule_id CHAR(36),
+    FOREIGN KEY (schedule_id) REFERENCES schedules (schedule_id)
 );
 
-CREATE TABLE "clients" (
-  "user_id" char(36) PRIMARY KEY,
-  "email" varchar UNIQUE,
-  "hashed_password" varchar,
-  "name" varchar,
-  "schedule_id" char(36),
-  "age" integer,
-  "guardian_id" char(36)
+-- Clients table (references Schedules and self-referencing for guardian_id)
+CREATE TABLE clients (
+    user_id CHAR(36) PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    hashed_password VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    age INT,
+    guardian_id CHAR(36),
+    schedule_id CHAR(36),
+    FOREIGN KEY (guardian_id) REFERENCES clients (user_id),
+    FOREIGN KEY (schedule_id) REFERENCES schedules (schedule_id)
 );
 
-CREATE TABLE "schedules" (
-  "schedule_id" char(36) PRIMARY KEY,
-  "owner_type" varchar,
-  "owner_id" char(36)
+-- Branches table (depends on Cities and Schedules)
+CREATE TABLE branches (
+    location_id CHAR(36) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    schedule_id CHAR(36) REFERENCES schedules(schedule_id),
+    parent_location_id CHAR(36) REFERENCES cities(location_id)
 );
 
-CREATE TABLE "time_slots" (
-  "schedule_id" char(36),
-  "start_time" timestamp,
-  "end_time" timestamp,
-  "reserved_by_public_offering_id" char(36),
-  "is_reserved" boolean,
-  PRIMARY KEY ("schedule_id", "start_time")
+-- TimeSlots table (depends on Schedules)
+CREATE TABLE time_slots (
+    schedule_id CHAR(36) NOT NULL REFERENCES schedules(schedule_id),
+    start_time TIMESTAMP NOT NULL,
+    end_time TIMESTAMP NOT NULL,
+    is_reserved BOOLEAN DEFAULT FALSE,
+    PRIMARY KEY (schedule_id, start_time)
 );
 
-CREATE TABLE "offerings" (
-  "offering_id" char(36) PRIMARY KEY,
-  "lesson_type" varchar,
-  "mode" varchar,
-  "capacity" integer,
-  "duration" integer
+-- Offerings table (depends on Instructors)
+CREATE TABLE offerings (
+    offering_id CHAR(36) PRIMARY KEY,
+    instructor_id CHAR(36) REFERENCES instructors(user_id),
+    lesson_type VARCHAR(255) NOT NULL,
+    mode VARCHAR(50) NOT NULL,
+    capacity INT NOT NULL
 );
 
-CREATE TABLE "public_offerings" (
-  "offering_id" char(36) PRIMARY KEY,
-  "instructor_id" char(36),
-  "schedule_id" char(36),
-  "lesson_type" varchar,
-  "mode" varchar,
-  "capacity" integer,
-  PRIMARY KEY ("offering_id", "instructor_id")
+-- PublicOfferings table (depends on Offerings)
+CREATE TABLE public_offerings (
+    public_offering_id CHAR(36) PRIMARY KEY,
+    offering_id CHAR(36) REFERENCES offerings(offering_id),
+    max_clients INT NOT NULL
 );
 
-CREATE TABLE "instructor_branch_availability" (
-  "instructor_id" char(36),
-  "branch_id" char(36),
-  PRIMARY KEY ("instructor_id", "branch_id")
+-- Bookings table (depends on Clients and PublicOfferings)
+CREATE TABLE bookings (
+    booking_id CHAR(36) PRIMARY KEY,
+    booked_by_client_id CHAR(36) REFERENCES clients(user_id),
+    public_offering_id CHAR(36) REFERENCES public_offerings(public_offering_id),
+    booked_for_client_id CHAR(36) REFERENCES clients(user_id)
 );
-
-CREATE TABLE "offered_in_branch" (
-  "offering_id" char(36),
-  "branch_id" char(36),
-  PRIMARY KEY ("offering_id", "branch_id")
-);
-
-CREATE TABLE "bookings" (
-  "booked_by_client_id" char(36),
-  "public_offering_id" char(36),
-  "booked_for_client_id" char(36),
-  PRIMARY KEY ("booked_by_client_id", "public_offering_id")
-);
-
-CREATE INDEX ON "schedules" ("owner_id", "owner_type");
-
-ALTER TABLE "cities" ADD FOREIGN KEY ("parent_location_id") REFERENCES "provinces" ("location_id") ON DELETE CASCADE;
-
-ALTER TABLE "branches" ADD FOREIGN KEY ("parent_location_id") REFERENCES "cities" ("location_id") ON DELETE CASCADE;
-
-ALTER TABLE "schedules" ADD FOREIGN KEY ("schedule_id") REFERENCES "branches" ("schedule_id") ON DELETE CASCADE;
-
-ALTER TABLE "schedules" ADD FOREIGN KEY ("schedule_id") REFERENCES "instructors" ("schedule_id") ON DELETE CASCADE;
-
-ALTER TABLE "schedules" ADD FOREIGN KEY ("schedule_id") REFERENCES "clients" ("schedule_id") ON DELETE CASCADE;
-
-ALTER TABLE "clients" ADD FOREIGN KEY ("user_id") REFERENCES "clients" ("guardian_id");
-
-ALTER TABLE "time_slots" ADD FOREIGN KEY ("schedule_id") REFERENCES "schedules" ("schedule_id") ON DELETE CASCADE;
-
-ALTER TABLE "time_slots" ADD FOREIGN KEY ("reserved_by_public_offering_id") REFERENCES "public_offerings" ("offering_id") ON DELETE CASCADE;
-
-ALTER TABLE "instructors" ADD FOREIGN KEY ("schedule_id") REFERENCES "schedules" ("owner_id") ON DELETE CASCADE;
-
-ALTER TABLE "clients" ADD FOREIGN KEY ("schedule_id") REFERENCES "schedules" ("owner_id") ON DELETE CASCADE;
-
-ALTER TABLE "branches" ADD FOREIGN KEY ("schedule_id") REFERENCES "schedules" ("owner_id") ON DELETE CASCADE;
-
-ALTER TABLE "offerings" ADD FOREIGN KEY ("offering_id") REFERENCES "public_offerings" ("offering_id") ON DELETE CASCADE;
-
-ALTER TABLE "public_offerings" ADD FOREIGN KEY ("instructor_id") REFERENCES "instructors" ("user_id") ON DELETE CASCADE;
-
-ALTER TABLE "schedules" ADD FOREIGN KEY ("schedule_id") REFERENCES "public_offerings" ("schedule_id") ON DELETE CASCADE;
-
-ALTER TABLE "instructor_branch_availability" ADD FOREIGN KEY ("instructor_id") REFERENCES "instructors" ("user_id") ON DELETE CASCADE;
-
-ALTER TABLE "instructor_branch_availability" ADD FOREIGN KEY ("branch_id") REFERENCES "branches" ("location_id") ON DELETE CASCADE;
-
-ALTER TABLE "offered_in_branch" ADD FOREIGN KEY ("offering_id") REFERENCES "offerings" ("offering_id") ON DELETE CASCADE;
-
-ALTER TABLE "offered_in_branch" ADD FOREIGN KEY ("branch_id") REFERENCES "branches" ("location_id") ON DELETE CASCADE;
-
-ALTER TABLE "bookings" ADD FOREIGN KEY ("booked_by_client_id") REFERENCES "clients" ("user_id") ON DELETE CASCADE;
-
-ALTER TABLE "bookings" ADD FOREIGN KEY ("public_offering_id") REFERENCES "public_offerings" ("offering_id") ON DELETE CASCADE;
-
-ALTER TABLE "bookings" ADD FOREIGN KEY ("booked_for_client_id") REFERENCES "clients" ("user_id") ON DELETE CASCADE;

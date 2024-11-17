@@ -6,6 +6,10 @@ from pathlib import Path
 import logging
 from datetime import datetime
 from singleton_decorator import singleton
+from sqlalchemy.orm import Session
+from Database import SessionLocal
+from utils import generate_id
+from Models import Province, City, Branch
 
 # Configure logging
 logging.basicConfig(
@@ -29,243 +33,66 @@ class DatabaseConnection:
 
 @singleton
 class LocationCatalog:
-    def __init__(self):
-        self.db = DatabaseConnection()
+    def __init__(self, session: Session = None):
+        self.session = session or SessionLocal()
 
-    def create_province(self, name: str) -> 'Province':
-        """Create a new province in the database."""
-        try:
-            with self.db.get_connection() as conn:
-                with conn.cursor() as cur:
-                    location_id = str(uuid.uuid4())
-                    
-                    # Insert province
-                    cur.execute("""
-                        INSERT INTO provinces (location_id, name)
-                        VALUES (%s, %s)
-                        RETURNING location_id
-                    """, (location_id, name))
-                    
-                    # Create audit log
-                    cur.execute("""
-                        INSERT INTO audit_logs (
-                            log_id, timestamp, table_name, action_type, 
-                            target_table, record_id, new_value
-                        ) VALUES (%s, %s, 'provinces', 'INSERT', 'provinces', %s, %s::jsonb)
-                    """, (
-                        str(uuid.uuid4()),
-                        datetime.now(),
-                        location_id,
-                        json.dumps({'location_id': location_id, 'name': name})
-                    ))
-                    
-                    conn.commit()
-                    return Province(location_id, name)
-                    
-        except Exception as e:
-            logger.error(f"Error creating province: {e}")
-            raise
+    def create_province(self, name):
+        """Create a new province and add it to the catalog."""
+        province_id = generate_id()
+        province = Province(location_id=province_id, name=name)
+        self.session.add(province)
+        self.session.commit()
+        return province
 
     def get_province(self, location_id: str) -> 'Province':
         """Retrieve a province by its ID."""
-        try:
-            with self.db.get_connection() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cur:
-                    cur.execute("""
-                        SELECT location_id, name 
-                        FROM provinces 
-                        WHERE location_id = %s
-                    """, (location_id,))
-                    
-                    result = cur.fetchone()
-                    if result:
-                        return Province(result['location_id'], result['name'])
-                    return None
-                    
-        except Exception as e:
-            logger.error(f"Error retrieving province: {e}")
-            raise
+        return self.session.query(Province).filter_by(location_id=province_id).first()
 
     def get_province_by_name(self, name: str) -> 'Province':
         """Retrieve a province by its name."""
-        try:
-            with self.db.get_connection() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cur:
-                    cur.execute("""
-                        SELECT location_id, name 
-                        FROM provinces 
-                        WHERE name = %s
-                    """, (name,))
-                    
-                    result = cur.fetchone()
-                    if result:
-                        return Province(result['location_id'], result['name'])
-                    return None
-                    
-        except Exception as e:
-            logger.error(f"Error retrieving province by name: {e}")
-            raise
+        return self.session.query(Province).filter_by(name=name).first()
 
-    def get_city(self, city_id: str) -> 'City':
+    def create_city(self, province_id, name):
+        """Create a new city and add it to the catalog."""
+        province = self.get_province(province_id)
+        if not province:
+            raise ValueError("Province not found.")
+
+        city_id = generate_id()
+        city = City(location_id=city_id, name=name, parent_location_id=province_id)
+        self.session.add(city)
+        self.session.commit()
+        return city
+
+    def get_city(self, city_id):
         """Retrieve a city by its ID."""
-        try:
-            with self.db.get_connection() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cur:
-                    cur.execute("""
-                        SELECT location_id, name, parent_location_id
-                        FROM cities 
-                        WHERE location_id = %s
-                    """, (city_id,))
-                    
-                    result = cur.fetchone()
-                    if result:
-                        return City(result['location_id'], result['name'], result['parent_location_id'])
-                    return None
-                    
-        except Exception as e:
-            logger.error(f"Error retrieving city: {e}")
-            raise
+        return self.session.query(City).filter_by(location_id=city_id).first()
 
-    def get_branch(self, branch_id: str) -> 'Branch':
+    def get_city_by_name(self, name):
+        """Retrieve a city by its name."""
+        return self.session.query(City).filter_by(name=name).first()
+
+    def create_branch(self, city_id, name, schedule_catalog):
+        """Create a new branch and add it to the catalog."""
+        city = self.get_city(city_id)
+        if not city:
+            raise ValueError("City not found.")
+
+        branch_id = generate_id()
+        branch = Branch(location_id=branch_id, name=name, parent_location_id=city_id)
+        self.session.add(branch)
+        self.session.commit() 
+
+        schedule = schedule_catalog.create_schedule(branch_id, "branch")
+        branch.schedule_id = schedule.schedule_id 
+
+        self.session.commit() 
+        return branch
+
+    def get_branch(self, branch_id):
         """Retrieve a branch by its ID."""
-        try:
-            with self.db.get_connection() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cur:
-                    cur.execute("""
-                        SELECT location_id, name, parent_location_id, schedule_id
-                        FROM branches 
-                        WHERE location_id = %s
-                    """, (branch_id,))
-                    
-                    result = cur.fetchone()
-                    if result:
-                        return Branch(
-                            result['location_id'], 
-                            result['name'], 
-                            result['parent_location_id'],
-                            result['schedule_id']
-                        )
-                    return None
-                    
-        except Exception as e:
-            logger.error(f"Error retrieving branch: {e}")
-            raise
+        return self.session.query(Branch).filter_by(location_id=branch_id).first()
 
-class Province:
-    def __init__(self, location_id: str, name: str):
-        self.location_id = location_id
-        self.name = name
-        self.db = DatabaseConnection()
-
-    def create_city(self, name: str) -> 'City':
-        """Create a new city in this province."""
-        try:
-            with self.db.get_connection() as conn:
-                with conn.cursor() as cur:
-                    location_id = str(uuid.uuid4())
-                    
-                    # Insert city
-                    cur.execute("""
-                        INSERT INTO cities (location_id, name, parent_location_id)
-                        VALUES (%s, %s, %s)
-                        RETURNING location_id
-                    """, (location_id, name, self.location_id))
-                    
-                    # Create audit log
-                    cur.execute("""
-                        INSERT INTO audit_logs (
-                            log_id, timestamp, table_name, action_type, 
-                            target_table, record_id, new_value
-                        ) VALUES (%s, %s, 'cities', 'INSERT', 'cities', %s, %s::jsonb)
-                    """, (
-                        str(uuid.uuid4()),
-                        datetime.now(),
-                        location_id,
-                        json.dumps({
-                            'location_id': location_id,
-                            'name': name,
-                            'parent_location_id': self.location_id
-                        })
-                    ))
-                    
-                    conn.commit()
-                    return City(location_id, name, self.location_id)
-                    
-        except Exception as e:
-            logger.error(f"Error creating city: {e}")
-            raise
-
-class City:
-    def __init__(self, location_id: str, name: str, parent_location_id: str):
-        self.location_id = location_id
-        self.name = name
-        self.parent_location_id = parent_location_id
-        self.db = DatabaseConnection()
-
-    def create_branch(self, name: str, schedule_id: str) -> 'Branch':
-        """Create a new branch in this city."""
-        try:
-            with self.db.get_connection() as conn:
-                with conn.cursor() as cur:
-                    location_id = str(uuid.uuid4())
-                    
-                    # Insert branch
-                    cur.execute("""
-                        INSERT INTO branches (location_id, name, schedule_id, parent_location_id)
-                        VALUES (%s, %s, %s, %s)
-                        RETURNING location_id
-                    """, (location_id, name, schedule_id, self.location_id))
-                    
-                    # Create audit log
-                    cur.execute("""
-                        INSERT INTO audit_logs (
-                            log_id, timestamp, table_name, action_type, 
-                            target_table, record_id, new_value
-                        ) VALUES (%s, %s, 'branches', 'INSERT', 'branches', %s, %s::jsonb)
-                    """, (
-                        str(uuid.uuid4()),
-                        datetime.now(),
-                        location_id,
-                        json.dumps({
-                            'location_id': location_id,
-                            'name': name,
-                            'schedule_id': schedule_id,
-                            'parent_location_id': self.location_id
-                        })
-                    ))
-                    
-                    conn.commit()
-                    return Branch(location_id, name, self.location_id, schedule_id)
-                    
-        except Exception as e:
-            logger.error(f"Error creating branch: {e}")
-            raise
-
-class Branch:
-    def __init__(self, location_id: str, name: str, parent_location_id: str, schedule_id: str):
-        self.location_id = location_id
-        self.name = name
-        self.parent_location_id = parent_location_id
-        self.schedule_id = schedule_id
-        self.db = DatabaseConnection()
-
-if __name__ == "__main__":
-    # Example usage
-    try:
-        location_catalog = LocationCatalog()
-        
-        # Create a province
-        province = location_catalog.create_province("California")
-        logger.info(f"Created province: {province.name} with ID: {province.location_id}")
-        
-        # Create a city in the province
-        city = province.create_city("Los Angeles")
-        logger.info(f"Created city: {city.name} with ID: {city.location_id}")
-        
-        # Create a branch in the city (assuming we have a schedule_id)
-        schedule_id = str(uuid.uuid4())  # In real usage, this would come from ScheduleCatalog
-        branch = city.create_branch("Downtown LA Branch", schedule_id)
-        logger.info(f"Created branch: {branch.name} with ID: {branch.location_id}")
-        
-    except Exception as e:
-        logger.error(f"Error in main: {e}")
+    def get_branch_by_name(self, name):
+        """Retrieve a branch by its name."""
+        return self.session.query(Branch).filter_by(name=name).first()

@@ -1,320 +1,151 @@
-import uuid
-import psycopg2
-from psycopg2.extras import DictCursor
-import json
-from datetime import datetime
-import logging
+from utils import generate_id
 from singleton_decorator import singleton
-from typing import Optional, Union
-import bcrypt
-
-# Import user types from their respective modules
-from Admins import Administrator
-from Instructors import Instructor
-from Clients import Client
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+from Bookings import Booking
+from sqlalchemy.orm import Session 
+from Models import Client, Instructor, Administrator
 
 @singleton
 class UserCatalog:
-    def __init__(self):
-        self.db = DatabaseConnection()
+    def __init__(self, session: Session):
+        self.session = session
 
-    def _hash_password(self, password: str) -> str:
-        """Hash a password using bcrypt."""
-        salt = bcrypt.gensalt()
-        return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
+    def add_user(self, user):
+        print(f"Adding user of type: {type(user)}")
 
-    def _verify_password(self, password: str, hashed: str) -> bool:
-        """Verify a password against its hash."""
-        return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+        if isinstance(user, Client):
+            self.session.add(user)
+        elif isinstance(user, Instructor):
+            self.session.add(user)
+        elif isinstance(user, Administrator):
+            self.session.add(user)
+        else:
+            raise ValueError("Unknown user type")
+        self.session.commit()
 
-    def register_client(self, email: str, password: str, name: str, schedule_id: str, 
-                       age: int = None, guardian_id: str = None) -> Client:
-        """Register a new client."""
-        try:
-            with self.db.get_connection() as conn:
-                with conn.cursor() as cur:
-                    user_id = str(uuid.uuid4())
-                    hashed_password = self._hash_password(password)
-                    
-                    # Insert client
-                    cur.execute("""
-                        INSERT INTO clients (
-                            user_id, email, hashed_password, name, 
-                            schedule_id, age, guardian_id
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s)
-                        RETURNING user_id
-                    """, (
-                        user_id, email, hashed_password, name,
-                        schedule_id, age, guardian_id
-                    ))
-                    
-                    # Create audit log
-                    cur.execute("""
-                        INSERT INTO audit_logs (
-                            log_id, timestamp, table_name, action_type, 
-                            target_table, record_id, new_value
-                        ) VALUES (%s, %s, 'clients', 'INSERT', 'clients', %s, %s::jsonb)
-                    """, (
-                        str(uuid.uuid4()),
-                        datetime.now(),
-                        user_id,
-                        json.dumps({
-                            'user_id': user_id,
-                            'email': email,
-                            'name': name,
-                            'schedule_id': schedule_id,
-                            'age': age,
-                            'guardian_id': guardian_id
-                        })
-                    ))
-                    
-                    conn.commit()
-                    return Client(user_id, email, name, schedule_id, age, guardian_id)
-                    
-        except Exception as e:
-            logger.error(f"Error registering client: {e}")
-            raise
+    def get_user_by_id(self, user_id):
+        # Retrieve user by ID from each table since there is no common User table
+        user = self.session.query(Client).filter_by(user_id=user_id).first()
+        if not user:
+            user = self.session.query(Instructor).filter_by(user_id=user_id).first()
+        if not user:
+            user = self.session.query(Administrator).filter_by(user_id=user_id).first()
+        return user
 
-    def register_instructor(self, email: str, password: str, name: str, phone: str,
-                          specialization: str, schedule_id: str) -> Instructor:
-        """Register a new instructor."""
-        try:
-            with self.db.get_connection() as conn:
-                with conn.cursor() as cur:
-                    user_id = str(uuid.uuid4())
-                    hashed_password = self._hash_password(password)
-                    
-                    # Insert instructor
-                    cur.execute("""
-                        INSERT INTO instructors (
-                            user_id, email, hashed_password, name,
-                            phone, specialization, schedule_id
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s)
-                        RETURNING user_id
-                    """, (
-                        user_id, email, hashed_password, name,
-                        phone, specialization, schedule_id
-                    ))
-                    
-                    # Create audit log
-                    cur.execute("""
-                        INSERT INTO audit_logs (
-                            log_id, timestamp, table_name, action_type, 
-                            target_table, record_id, new_value
-                        ) VALUES (%s, %s, 'instructors', 'INSERT', 'instructors', %s, %s::jsonb)
-                    """, (
-                        str(uuid.uuid4()),
-                        datetime.now(),
-                        user_id,
-                        json.dumps({
-                            'user_id': user_id,
-                            'email': email,
-                            'name': name,
-                            'phone': phone,
-                            'specialization': specialization,
-                            'schedule_id': schedule_id
-                        })
-                    ))
-                    
-                    conn.commit()
-                    return Instructor(user_id, email, name, phone, specialization, schedule_id)
-                    
-        except Exception as e:
-            logger.error(f"Error registering instructor: {e}")
-            raise
+    def get_client_by_email(self, email):
+        return self.session.query(Client).filter(Client.email == email).first()
 
-    def register_administrator(self, email: str, password: str, name: str) -> Administrator:
-        """Register a new administrator."""
-        try:
-            with self.db.get_connection() as conn:
-                with conn.cursor() as cur:
-                    user_id = str(uuid.uuid4())
-                    hashed_password = self._hash_password(password)
-                    
-                    # Insert administrator
-                    cur.execute("""
-                        INSERT INTO administrators (
-                            user_id, email, hashed_password, name
-                        ) VALUES (%s, %s, %s, %s)
-                        RETURNING user_id
-                    """, (user_id, email, hashed_password, name))
-                    
-                    # Create audit log
-                    cur.execute("""
-                        INSERT INTO audit_logs (
-                            log_id, timestamp, table_name, action_type, 
-                            target_table, record_id, new_value
-                        ) VALUES (%s, %s, 'administrators', 'INSERT', 'administrators', %s, %s::jsonb)
-                    """, (
-                        str(uuid.uuid4()),
-                        datetime.now(),
-                        user_id,
-                        json.dumps({
-                            'user_id': user_id,
-                            'email': email,
-                            'name': name
-                        })
-                    ))
-                    
-                    conn.commit()
-                    return Administrator(user_id, email, name)
-                    
-        except Exception as e:
-            logger.error(f"Error registering administrator: {e}")
-            raise
+    def get_instructor_by_email(self, email):
+        return self.session.query(Instructor).filter(Instructor.email == email).first()
 
-    def get_user_by_id(self, user_id: str) -> Optional[Union[Client, Instructor, Administrator]]:
-        """Retrieve a user by their ID."""
-        try:
-            with self.db.get_connection() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cur:
-                    # Try each user type table
-                    for table, cls in [
-                        ('clients', Client),
-                        ('instructors', Instructor),
-                        ('administrators', Administrator)
-                    ]:
-                        cur.execute(f"""
-                            SELECT *
-                            FROM {table}
-                            WHERE user_id = %s
-                        """, (user_id,))
-                        
-                        result = cur.fetchone()
-                        if result:
-                            return cls(**dict(result))
-                    
-                    return None
-                    
-        except Exception as e:
-            logger.error(f"Error retrieving user: {e}")
-            raise
+    def remove_user(self, user_id):
+        """Remove a user by searching in all tables."""
+        user = self.get_user_by_id(user_id)
+        if user:
+            self.session.delete(user)
+            self.session.commit()
 
-    def get_user_by_email(self, email: str) -> Optional[Union[Client, Instructor, Administrator]]:
-        """Retrieve a user by their email."""
-        try:
-            with self.db.get_connection() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cur:
-                    # Try each user type table
-                    for table, cls in [
-                        ('clients', Client),
-                        ('instructors', Instructor),
-                        ('administrators', Administrator)
-                    ]:
-                        cur.execute(f"""
-                            SELECT *
-                            FROM {table}
-                            WHERE email = %s
-                        """, (email,))
-                        
-                        result = cur.fetchone()
-                        if result:
-                            return cls(**dict(result))
-                    
-                    return None
-                    
-        except Exception as e:
-            logger.error(f"Error retrieving user by email: {e}")
-            raise
-
-    def delete_user(self, user_id: str) -> bool:
-        """Delete a user from any user type table."""
-        try:
-            with self.db.get_connection() as conn:
-                with conn.cursor() as cur:
-                    # Try to delete from each user type table
-                    for table in ['clients', 'instructors', 'administrators']:
-                        # Get current data for audit log
-                        cur.execute(f"""
-                            SELECT *
-                            FROM {table}
-                            WHERE user_id = %s
-                        """, (user_id,))
-                        
-                        old_data = cur.fetchone()
-                        if old_data:
-                            # Create audit log
-                            cur.execute("""
-                                INSERT INTO audit_logs (
-                                    log_id, timestamp, table_name, action_type, 
-                                    target_table, record_id, old_value
-                                ) VALUES (%s, %s, %s, 'DELETE', %s, %s, %s::jsonb)
-                            """, (
-                                str(uuid.uuid4()),
-                                datetime.now(),
-                                table,
-                                table,
-                                user_id,
-                                json.dumps(dict(zip([col.name for col in cur.description], old_data)))
-                            ))
-                            
-                            # Delete the user
-                            cur.execute(f"""
-                                DELETE FROM {table}
-                                WHERE user_id = %s
-                            """, (user_id,))
-                            
-                            conn.commit()
-                            return True
-                    
-                    return False
-                    
-        except Exception as e:
-            logger.error(f"Error deleting user: {e}")
-            raise
-
-    def login(self, email: str, password: str) -> Optional[Union[Client, Instructor, Administrator]]:
+    def login(self, email, password):
         """Authenticate a user based on email and password."""
-        try:
-            with self.db.get_connection() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cur:
-                    # Try each user type table
-                    for table, cls in [
-                        ('clients', Client),
-                        ('instructors', Instructor),
-                        ('administrators', Administrator)
-                    ]:
-                        cur.execute(f"""
-                            SELECT *
-                            FROM {table}
-                            WHERE email = %s
-                        """, (email,))
-                        
-                        user = cur.fetchone()
-                        if user and self._verify_password(password, user['hashed_password']):
-                            return cls(**dict(user))
-                    
-                    return None
-                    
-        except Exception as e:
-            logger.error(f"Error during login: {e}")
-            raise
+        # Try logging in as client, then instructor, then administrator
+        user = self.get_client_by_email(email) or self.get_instructor_by_email(email)  # Adjust with additional logic for `Administrator` if needed
+        if user and user.hashed_password == password:
+            return user
+        return None
 
-if __name__ == "__main__":
-    # Example usage
-    try:
-        catalog = UserCatalog()
-        
-        # Register a client
-        client = catalog.register_client(
-            email="client@example.com",
-            password="securepass",
-            name="John Doe",
-            schedule_id=str(uuid.uuid4()),
-            age=25
+    
+class Instructor:
+    def __init__(self, instructor_id, name, phone, specialization, email, password, schedule_catalog):
+        self.user_id = instructor_id
+        self.name = name
+        self.phone = phone
+        self.specialization = specialization
+        self.email = email
+        self.password = password
+        # Initialize schedule in the database
+        self.schedule = schedule_catalog.create_schedule(instructor_id)
+        self.available_cities = []  # May need to be managed with database records
+
+    def create_offering(self, offering_catalog, lesson_type, mode, capacity):
+        """Create an offering and add it to the database."""
+        offering = offering_catalog.create_offering(
+            instructor_id=self.user_id,
+            lesson_type=lesson_type,
+            mode=mode,
+            capacity=capacity
         )
-        logger.info(f"Created client: {client}")
+        return offering
+
+    def create_public_offering(self, offering_catalog, offering_id, max_clients):
+        """Create a public offering and add it to the database."""
+        public_offering = offering_catalog.create_public_offering(offering_id, max_clients)
+        return public_offering
+
+    def set_availability(self, city_id):
+        """Add a city to the instructor's availability in the database."""
+        # This should ideally add a record in an InstructorCityAvailability table.
+        if city_id not in self.available_cities:
+            self.available_cities.append(city_id)  # Placeholder until database is set up
+
+    def __repr__(self):
+        return (f"Instructor(instructor_id={self.user_id}, name='{self.name}', "
+                f"specialization='{self.specialization}', email='{self.email}')")
         
-        # Try to login
-        logged_in_user = catalog.login("client@example.com", "securepass")
-        logger.info(f"Logged in user: {logged_in_user}")
-        
-    except Exception as e:
-        logger.error(f"Error in main: {e}")
+# class Client:
+#     def __init__(self, client_id, email, password, schedule_catalog, age=None, guardian_id=None):
+#         self.user_id = client_id
+#         self.email = email
+#         self.password = password  # Store hashed password
+#         self.age = age
+#         self.guardian_id = guardian_id
+#         # Initialize schedule in the database
+#         self.schedule = schedule_catalog.create_schedule(client_id)
+#         self.bookings = []  # This will interact with the BookingCatalog
+
+#     def create_booking(self, booking_catalog, public_offering_id, booked_for_client_ids):
+#         """Create a booking and add it to the database."""
+#         booking_id = generate_id()
+#         booking = Booking(
+#             booking_id=booking_id,
+#             booked_by_client_id=self.user_id,
+#             public_offering_id=public_offering_id,
+#             booked_for_client_ids=booked_for_client_ids
+#         )
+#         booking_catalog.add_booking(booking)
+#         self.bookings.append(booking_id)
+#         return booking
+
+#     def cancel_booking(self, booking_catalog, booking_id):
+#         """Cancel a booking."""
+#         booking = booking_catalog.get_booking_by_id(booking_id)
+#         if booking and booking.booked_by_client_id == self.user_id:
+#             booking_catalog.remove_booking(booking_id)
+#             self.bookings.remove(booking_id)
+#             return True
+#         return False
+
+#     def make_booking(self, system, search_query):
+#         """Make a booking based on a search query."""
+#         public_offerings = system.search_public_offerings(search_query)
+#         if not public_offerings:
+#             print("No offerings found.")
+#             return None
+
+#         # Assume selection and booking are handled interactively or via another method.
+#         # Database logic to persist the booking will be similar to create_booking.
+
+#     def cancel_booking(self, system, offering_id):
+#         """Cancel a booking for a given offering in the database."""
+#         offering = system.offering_catalog.get_public_offering(offering_id)
+#         if not offering:
+#             print("Offering not found.")
+#             return False
+
+#         # Check if booking exists and perform database delete operations as needed.
+
+#     def notify_cancellation(self, offering_id):
+#         """Notify the client about a booking cancellation."""
+#         print(f"Notification: A booking for offering {offering_id} has been canceled.")
+
+#     def __repr__(self):
+#         return (f"Client(client_id={self.user_id}, age={self.age}, "
+#                 f"email='{self.email}', guardian_id={self.guardian_id})")
