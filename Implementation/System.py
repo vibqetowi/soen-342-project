@@ -7,9 +7,8 @@ from Offerings import OfferingCatalog
 from Bookings import BookingCatalog
 from Location import LocationCatalog
 from Scheduling import ScheduleCatalog
-from Models import Client
+from Models import Client, Administrator, Instructor
 from sqlalchemy.exc import SQLAlchemyError
-
 
 def hash_password(password: str) -> bytes:
     """Hashes a password using bcrypt."""
@@ -19,10 +18,8 @@ def check_password(provided_password: str, stored_hashed_password: bytes) -> boo
     """Checks if the provided password matches the stored hashed password."""
     return bcrypt.checkpw(provided_password.encode('utf-8'), stored_hashed_password)
 
-
 @singleton
 class System:
-    
     def __init__(self):
         # Set up a session for database transactions
         self.session = SessionLocal()
@@ -38,89 +35,7 @@ class System:
         """Close the session to free up resources."""
         self.session.close()
 
-    # Administrator actions
-    def create_offering(self, lesson_type, mode, capacity):
-        """Create a new offering through the OfferingCatalog."""
-        try:
-            offering = self.offering_catalog.create_offering(
-                instructor_id=None,
-                lesson_type=lesson_type,
-                mode=mode,
-                capacity=capacity
-            )
-            self.session.commit()
-            return offering
-        except SQLAlchemyError as e:
-            self.session.rollback()
-            print(f"Error creating offering: {e}")
-            return None
-
-    def delete_user(self, user_id):
-        """Delete a user from the UserCatalog."""
-        try:
-            result = self.user_catalog.remove_user(user_id)
-            self.session.commit()
-            return result
-        except SQLAlchemyError as e:
-            self.session.rollback()
-            print(f"Error deleting user: {e}")
-            return None
-
-    def edit_user(self, user_id, **kwargs):
-        """Edit user information."""
-        try:
-            result = self.user_catalog.edit_user(user_id, **kwargs)
-            self.session.commit()
-            return result
-        except SQLAlchemyError as e:
-            self.session.rollback()
-            print(f"Error editing user: {e}")
-            return None
-
-    def delete_booking(self, booking_id):
-        """Delete a booking from the BookingCatalog."""
-        try:
-            result = self.booking_catalog.remove_booking(booking_id)
-            self.session.commit()
-            return result
-        except SQLAlchemyError as e:
-            self.session.rollback()
-            print(f"Error deleting booking: {e}")
-            return None
-
-    def edit_booking(self, booking_id, **kwargs):
-        """Edit booking information."""
-        try:
-            result = self.booking_catalog.edit_booking(booking_id, **kwargs)
-            self.session.commit()
-            return result
-        except SQLAlchemyError as e:
-            self.session.rollback()
-            print(f"Error editing booking: {e}")
-            return None
-
-    def delete_offering(self, offering_id):
-        """Delete an offering from the OfferingCatalog."""
-        try:
-            result = self.offering_catalog.delete_offering(offering_id)
-            self.session.commit()
-            return result
-        except SQLAlchemyError as e:
-            self.session.rollback()
-            print(f"Error deleting offering: {e}")
-            return None
-
-    def edit_offering(self, offering_id, **kwargs):
-        """Edit offering information."""
-        try:
-            result = self.offering_catalog.edit_offering(offering_id, **kwargs)
-            self.session.commit()
-            return result
-        except SQLAlchemyError as e:
-            self.session.rollback()
-            print(f"Error editing offering: {e}")
-            return None
-
+    # Registration actions
     def register_client(self, email, password, **kwargs):
         """Register a new client."""
         try:
@@ -130,13 +45,12 @@ class System:
             hashed_password = hash_password(password)
             client_id = generate_id()
             client = Client(
-                client_id=client_id,
+                user_id=client_id,
                 email=email,
-                password=hashed_password,
-                schedule_catalog=self.schedule_catalog,
+                hashed_password=hashed_password,
                 **kwargs
             )
-            self.user_catalog.add_user(client)
+            self.session.add(client)
             self.session.commit()
             return client
         except SQLAlchemyError as e:
@@ -144,21 +58,49 @@ class System:
             print(f"Error registering client: {e}")
             return None
 
-    def login(self, email, password):
-        """Authenticate a user based on email and password."""
-        user = self.user_catalog.get_user_by_email(email)
-        if user and check_password(password, user.password):
-            return user
-        print("Login failed: invalid credentials.")
-        return None
+    def register_instructor(self, email, password, **kwargs):
+        """Register a new instructor."""
+        try:
+            if self.user_catalog.get_user_by_email(email):
+                print("Email already in use.")
+                return None
+            hashed_password = hash_password(password)
+            instructor_id = generate_id()
+            instructor = Instructor(
+                user_id=instructor_id,
+                email=email,
+                hashed_password=hashed_password,
+                **kwargs
+            )
+            self.session.add(instructor)
+            self.session.commit()
+            return instructor
+        except SQLAlchemyError as e:
+            self.session.rollback()
+            print(f"Error registering instructor: {e}")
+            return None
 
-    def search_public_offerings(self, search_query):
-        """Search for public offerings based on a query."""
-        return [
-            offering for offering in self.offering_catalog.get_all_public_offerings()
-            if search_query.lower() in offering.lesson_type.lower()
-        ]
-
+    def register_administrator(self, email, password, **kwargs):
+        """Register a new administrator."""
+        try:
+            if self.user_catalog.get_user_by_email(email):
+                print("Email already in use.")
+                return None
+            hashed_password = hash_password(password)
+            admin_id = generate_id()
+            admin = Administrator(
+                user_id=admin_id,
+                email=email,
+                hashed_password=hashed_password,
+                **kwargs
+            )
+            self.session.add(admin)
+            self.session.commit()
+            return admin
+        except SQLAlchemyError as e:
+            self.session.rollback()
+            print(f"Error registering administrator: {e}")
+            return None
 
 class Administrator:
     def __init__(self, admin_id, email, password):

@@ -2,30 +2,28 @@ from sqlalchemy import Column, String, Integer, ForeignKey, Boolean, DateTime
 from sqlalchemy.orm import relationship
 from Database import Base
 
-class User(Base):
-    __tablename__ = 'users'
+class Administrator(Base):
+    __tablename__ = 'administrators'
     user_id = Column(String, primary_key=True)
     email = Column(String, unique=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     name = Column(String, nullable=False)
-    type = Column(String)
 
-class Administrator(User):
-    __tablename__ = 'administrators'
-    user_id = Column(String, ForeignKey('users.user_id'), primary_key=True)  # Foreign key to `users`
-
-class Instructor(User):
+class Instructor(Base):
     __tablename__ = 'instructors'
-    user_id = Column(String, ForeignKey('users.user_id'), primary_key=True)
-    specialization = Column(String)
-    phone = Column(String)
+    user_id = Column(String, primary_key=True)
+    email = Column(String, unique=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    name = Column(String, nullable=False)
+    specialization = Column(String, nullable=False)
+    phone = Column(String, nullable=False)
     schedule_id = Column(String, ForeignKey('schedules.schedule_id'))
 
     schedule = relationship("Schedule", foreign_keys=[schedule_id])
 
 class Client(Base):
     __tablename__ = 'clients'
-    user_id = Column(String, ForeignKey('users.user_id'), primary_key=True)
+    user_id = Column(String, primary_key=True)
     email = Column(String, unique=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     name = Column(String, nullable=False)
@@ -33,7 +31,6 @@ class Client(Base):
     guardian_id = Column(String, ForeignKey('clients.user_id'))
     schedule_id = Column(String, ForeignKey('schedules.schedule_id'))
 
-    # Define the schedule relationship explicitly with foreign_keys and remove back_populates
     schedule = relationship("Schedule", foreign_keys=[schedule_id])
 
 class Booking(Base):
@@ -43,7 +40,6 @@ class Booking(Base):
     public_offering_id = Column(String, ForeignKey('public_offerings.public_offering_id'))
     booked_for_client_id = Column(String, ForeignKey('clients.user_id'))
 
-    # Relationships
     public_offering = relationship("PublicOffering", back_populates="bookings")
     booked_by_client = relationship("Client", foreign_keys=[booked_by_client_id])
     booked_for_client = relationship("Client", foreign_keys=[booked_for_client_id])
@@ -63,7 +59,6 @@ class TimeSlot(Base):
     end_time = Column(DateTime, nullable=False)
     is_reserved = Column(Boolean, default=False)
 
-    # This should match the `back_populates` in the Schedule model
     schedule = relationship("Schedule", back_populates="time_slots")
 
 class Offering(Base):
@@ -71,7 +66,7 @@ class Offering(Base):
     offering_id = Column(String, primary_key=True)
     instructor_id = Column(String, ForeignKey('instructors.user_id'))
     lesson_type = Column(String, nullable=False)
-    mode = Column(String, nullable=False)  # e.g., "group" or "solo"
+    mode = Column(String, nullable=False)
     capacity = Column(Integer, nullable=False)
 
     public_offerings = relationship("PublicOffering", back_populates="offering")
@@ -82,7 +77,6 @@ class PublicOffering(Base):
     offering_id = Column(String, ForeignKey('offerings.offering_id'))
     max_clients = Column(Integer, nullable=False)
 
-    # Relationships
     offering = relationship("Offering", back_populates="public_offerings")
     bookings = relationship("Booking", back_populates="public_offering")
 
