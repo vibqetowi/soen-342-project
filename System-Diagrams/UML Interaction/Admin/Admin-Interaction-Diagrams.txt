@@ -1,190 +1,318 @@
 @startuml
-actor Admin
-participant System
-collections OfferingCatalog
-participant "O:Offering" 
-collections Offerings
+title Create Offering and Validate Non-Overlapping Timeslots
 
-title Create Offering
+actor Admin
+participant "System\n<<singleton>>" as System
+participant "OfferingCatalog\n<<singleton>>" as OfferingCatalog
+participant "LocationCatalog\n<<singleton>>" as LocationCatalog
+participant "O:Offering" as Offering
+participant "B:Branch" as Branch
+collections "Offerings" as Offerings
+collections "OfferedInBranch" as OfferedInBranch
+
+note right of System
+Checking for timeslot overlap was defined in system interactions UML
+end note
 
 autonumber
 
-Admin -> System : createOffering(offering_id : Integer, lesson_type : String, mode : String)
-System -> OfferingCatalog: newOffering(*args)
-OfferingCatalog -> "O:Offering" **: create(*args)
-"O:Offering" --> OfferingCatalog: Confirm
-OfferingCatalog -> Offerings: add(O)
-Offerings --> OfferingCatalog: Confirm
-OfferingCatalog --> System : Confirm 
-System --> Admin : Confirm
+Admin -> System: startCreateOffering(*args, List<branch_id>)
+System -> System: validateAdminAccess()
+System -> System: generateId()
+
+System -> OfferingCatalog: getInstance()
+System -> LocationCatalog: getInstance()
+
+loop#lightgreen #lightgreen for each branch_id in branch_ids
+    System -> LocationCatalog: getBranch(branch_id)
+    LocationCatalog -> Branch: getBranchOfferings()
+    Branch --> System: List<Offering>
+    
+    System -> System: validateTimeSlots(start_time, end_time, schedule_id)
+end
+
+alt#Pink #LightPink time slot overlap detected
+    System --> Admin: error: time slot conflict
+else no conflicts
+    System -> OfferingCatalog: createOffering(id, *args)
+    OfferingCatalog -> Offering **: create(id, *args)
+    Offering --> OfferingCatalog: confirm
+    OfferingCatalog -> Offerings: add(O)
+    Offerings --> OfferingCatalog: confirm
+    
+    loop#lightblue #lightblue for each branch_id in branch_ids
+        System -> OfferedInBranch: add(branch_id, offering_id)
+        OfferedInBranch --> System: confirm
+    end
+    
+    System --> Admin: confirm
+end
 
 @enduml
+______________________________
 
-__________________________________________
+@startuml
+title Create Location
+actor Admin
+participant "System\n<<singleton>>" as System
+participant "LocationCatalog\n<<singleton>>" as LocationCatalog
+participant "L:Location" as Location
+collections Locations
+
+note over LocationCatalog
+Location is a generic type representing
+all location subtypes (Province, City, Branch)
+end note
+
+note right of System
+parent_location_id may be null (for Province)
+*args used for brevity
+abstracting validating a location hierarchy
+end note
+
+autonumber
+
+Admin -> System: createLocation(parent_location_id, *args)
+System -> System: validateAdminAccess()
+System -> System: generateId()
+
+System -> LocationCatalog: getInstance()
+System -> LocationCatalog: addLocation(id, parent_location_id, *args)
+LocationCatalog -> Location **: create(id, parent_location_id, *args)
+Location --> LocationCatalog: confirm
+LocationCatalog -> LocationCatalog: validateLocationHierarchy()
+LocationCatalog --> Locations: add(L)
+Locations --> LocationCatalog: confirm
+LocationCatalog --> System: confirm
+System --> Admin: confirm
+@enduml
+______________________________
 
 @startuml
 actor Admin
-participant System
-collections UserCatalog
-participant "U:User"
+participant UI
+participant "System\n<<singleton>>" as System
+participant "UserCatalog\n<<singleton>>" as UserCatalog
+participant "U:User" as User
 
-note over of UserCatalog
-I write User as generic datatype
-there's no meaningful difference 
-between client and instructor here
+note over UI
+Generic User type encompasses both Client and Instructor
+Abstracting off error handling
+all user types can edit themselves, the flow is basically the same except for authentication
 end note
 
-title delete User
+title Delete User
 
 autonumber
 
-Admin -> System : deleteUser(id)
-System -> UserCatalog : find(id)
-UserCatalog --> System : return U:User
-System -> UserCatalog : confirmDelete(U)
-UserCatalog -> "U:User" !! : delete
-UserCatalog --> System : Confirm
-System --> Admin : Confirm
+Admin -> UI: handleUserInput(user_id)
+UI -> System: deleteUser(id)
+System -> System: validateAdminAccess()
+System -> UserCatalog: getInstance()
+System -> UserCatalog: getUser(id)
+UserCatalog -> UserCatalog: find(id)
+UserCatalog --> System: return U:User
+System -> User !!: delete
+System --> UI: confirm
+UI --> Admin: confirm
 
 @enduml
-
-__________________________________________
+______________________________
 
 @startuml
 actor Admin
-participant System
-collections UserCatalog
-participant "U:User"
+participant UI
+participant "System\n<<singleton>>" as System
+participant "UserCatalog\n<<singleton>>" as UserCatalog
+participant "U:User" as User
 
-note over of UserCatalog
-I write User as generic datatype
-there's no meaningful difference 
-between client and instructor here
+note over UI
+Using generic user notation
+We also assume absence of errors 
+
+all user types can delete themselves, the flow is basically the same except for authentication
 end note
 
-note over of System
-I write *args to suggest any possible edits
-end note
-
-title edit User
+title Edit User
 
 autonumber
 
-Admin -> System : editUser(id,*args)
-System -> UserCatalog : find(id)
-UserCatalog --> System : return U:User
-System -> UserCatalog : confirmEdit(U)
-UserCatalog -> "U:User": editRecord(*args)
-"U:User" --> UserCatalog : Confirm  
-UserCatalog --> System : Confirm
-System --> Admin : Confirm
+Admin -> UI: handleUserInput(user_id, *args)
+UI -> System: editUser(id, *args)
 
+System -> System: validateAdminAccess()
+System -> UserCatalog: getInstance()
+System -> UserCatalog: getUser(id)
+UserCatalog -> UserCatalog: find(id)
+UserCatalog --> System: return U:User
+
+System -> User: updateProfile(*args)
+User --> System: confirm
+System --> UI: confirm
+UI --> Admin: confirm
 @enduml
-
-__________________________________________
+______________________________
 
 @startuml
 actor Admin
-participant System
-collections BookingCatalog
-participant "B:Booking"
+participant UI
+participant "System\n<<singleton>>" as System
+participant "BookingCatalog\n<<singleton>>" as BookingCatalog
+participant "B:Booking" as Booking
 
-title delete Booking
+title Delete Booking
+note over UI
+Abstracting off error handling and omitting user notification
+end note
 
 autonumber
 
-Admin -> System : deleteBooking(id)
-System -> BookingCatalog : find(id)
-BookingCatalog --> System : return B:Booking
-System -> BookingCatalog : confirmDelete(B)
-BookingCatalog -> "B:Booking" !! : delete
-BookingCatalog --> System : Confirm
-System --> Admin : Confirm
+Admin -> UI: handleUserInput(booking_id)
+UI -> System: deleteBooking(id)
+
+    System -> System: validateAdminAccess()
+    System -> BookingCatalog: getInstance()
+    System -> BookingCatalog: getBooking(id)
+    BookingCatalog -> BookingCatalog: find(id)
+    BookingCatalog --> System: return B:Booking
+    System -> Booking !!: delete
+    System --> UI: confirm
+    UI --> Admin: confirm
 
 @enduml
-
-__________________________________________
+______________________________
 
 @startuml
 actor Admin
-participant System
-collections BookingCatalog
-participant "B:Booking"
+participant UI
+participant "System\n<<singleton>>" as System
+participant "BookingCatalog\n<<singleton>>" as BookingCatalog
+participant "B:Booking" as Booking
 
-note over of System
-I write *args to suggest any possible edits
+title Edit Booking
+
+note over UI
+Abstracting off error handling
 end note
-
-title edit Booking
 
 autonumber
 
-Admin -> System : editBooking(id, *args)
-System -> BookingCatalog : find(id)
-BookingCatalog --> System : return B:Booking
-System -> BookingCatalog : confirmEdit(B)
-BookingCatalog -> "B:Booking" : editRecord(*args)
-"B:Booking" --> BookingCatalog : Confirm  
-BookingCatalog --> System : Confirm
-System --> Admin : Confirm
+Admin -> UI: handleUserInput(booking_id, *args)
+UI -> System: editBooking(id, *args)
 
+System -> System: validateAdminAccess()
+System -> BookingCatalog: getInstance()
+System -> BookingCatalog: getBooking(id)
+BookingCatalog -> BookingCatalog: find(id)
+BookingCatalog --> System: return B:Booking
+
+System -> Booking: editRecord(*args)
+Booking --> System: confirm
+System --> UI: confirm
+UI --> Admin: confirm
 @enduml
-
-__________________________________________
+______________________________
 
 @startuml
 actor Admin
-participant System
-collections OfferingCatalog
-participant "O:Offering"
+participant UI
+participant "System\n<<singleton>>" as System
+participant "OfferingCatalog\n<<singleton>>" as OfferingCatalog
+participant "O:Offering" as Offering
 
-note over of OfferingCatalog
-There is no meaningful difference between 
-Public Offering and Offering here
+title Delete Base Offering
+
+note over UI
+Assuming all records exist and are valid
 end note
-
-title delete Offering
 
 autonumber
 
-Admin -> System : deleteOffering(id)
-System -> OfferingCatalog : find(id)
-OfferingCatalog --> System : return O:Offering
-System -> OfferingCatalog : confirmDelete(O)
-OfferingCatalog -> "O:Offering" !! : delete
-OfferingCatalog --> System : Confirm
-System --> Admin : Confirm
+Admin -> UI: handleUserInput(offering_id)
+UI -> System: deleteOffering(id)
 
+System -> System: validateAdminAccess()
+System -> OfferingCatalog: getInstance()
+System -> OfferingCatalog: getOffering(id)
+OfferingCatalog -> OfferingCatalog: find(id)
+OfferingCatalog --> System: return O:Offering
+System -> Offering !!: delete
+System --> UI: confirm
+UI --> Admin: confirm
 @enduml
-
-__________________________________________
+______________________________
 
 @startuml
 actor Admin
-participant System
-collections OfferingCatalog
-participant "O:Offering"
+participant UI
+participant "System\n<<singleton>>" as System
+participant "OfferingCatalog\n<<singleton>>" as OfferingCatalog
+participant "BookingCatalog\n<<singleton>>" as BookingCatalog
+participant "PO:PublicOffering" as PublicOffering
+participant "B:Booking" as Booking
 
-note over of OfferingCatalog
-There is no meaningful difference between 
-Public Offering and Offering here
+title Delete Public Offering
+
+note over UI
+Assuming all records exist and are valid
+Omitting user notifications
 end note
-
-note over of System
-I write *args to suggest any possible edits
-end note
-
-title edit Offering
 
 autonumber
 
-Admin -> System : editOffering(id, *args)
-System -> OfferingCatalog : find(id)
-OfferingCatalog --> System : return O:Offering
-System -> OfferingCatalog : confirmEdit(O)
-OfferingCatalog -> "O:Offering" : editRecord(*args)
-"O:Offering" --> OfferingCatalog : Confirm  
-OfferingCatalog --> System : Confirm
-System --> Admin : Confirm
+Admin -> UI: handleUserInput(public_offering_id)
+UI -> System: deletePublicOffering(id)
 
+System -> System: validateAdminAccess()
+System -> OfferingCatalog: getInstance()
+System -> OfferingCatalog: getPublicOffering(id)
+OfferingCatalog -> OfferingCatalog: find(id)
+OfferingCatalog --> System: return PO:PublicOffering
+
+System -> BookingCatalog: getInstance()
+System -> BookingCatalog: getBookingsByOffering(id)
+BookingCatalog -> BookingCatalog: find(id)
+BookingCatalog --> System: return List<Booking>
+
+loop#e6e6fa #e6e6fa for each booking in List<Booking>
+    System -> Booking !!: delete
+end
+
+System -> PublicOffering !!: delete
+System --> UI: confirm
+UI --> Admin: confirm
 @enduml
+______________________________
+
+@startuml
+actor Admin
+participant UI
+participant "System\n<<singleton>>" as System
+participant "OfferingCatalog\n<<singleton>>" as OfferingCatalog
+participant "O:Offering" as Offering
+
+note over OfferingCatalog
+Generic Offering type encompasses
+both Public and Base Offerings
+Abstracting off error handling
+end note
+
+title Edit Offering
+
+autonumber
+
+Admin -> UI: handleUserInput(offering_id, *args)
+UI -> System: editOffering(id, *args)
+
+System -> System: validateAdminAccess()
+System -> OfferingCatalog: getInstance()
+System -> OfferingCatalog: getOffering(id)
+OfferingCatalog -> OfferingCatalog: find(id)
+OfferingCatalog --> System: return O:Offering
+
+System -> Offering: editRecord(*args)
+Offering --> System: confirm
+System --> UI: confirm
+UI --> Admin: confirm
+@enduml
+______________________________

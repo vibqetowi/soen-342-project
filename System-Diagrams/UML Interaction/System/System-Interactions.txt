@@ -1,0 +1,138 @@
+@startuml
+title Reserve Timeslots
+
+participant "System\n<<singleton>>" as System
+participant "ScheduleCatalog\n<<singleton>>" as ScheduleCatalog
+participant "S:Schedule" as Schedule
+participant "T:TimeSlot" as TimeSlot
+
+note right of System
+All System interactions are triggered by some other method
+
+Schedule owner can be:
+- Users (Client/Instructor)
+- Branches
+
+This diagram shows the reservation process:
+1. Receive pre-validated timeslot IDs
+2. Reserve all slots for the offering
+3. Commit transaction after all reservations
+end note
+
+autonumber
+
+System -> System: reserveTimeSlots(List<TimeSlotId>, public_offering_id, schedule_owner_id)
+
+System -> ScheduleCatalog: getInstance()
+System -> ScheduleCatalog: findScheduleByOwnerId(schedule_owner_id)
+ScheduleCatalog -> ScheduleCatalog: find(schedule_owner_id)
+ScheduleCatalog --> System: return S:Schedule
+
+loop#DFF5E4 #DFF5E4 for each timeslot_id
+    System -> Schedule: getTimeSlot(timeslot_id)
+    Schedule ->  Schedule: find(timeslot_id)
+    Schedule --> System: return T:TimeSlot
+    System -> TimeSlot: reserve(public_offering_id)
+    TimeSlot --> System: confirm
+end
+
+System --> System: return success
+
+@enduml
+__________________________________
+@startuml
+title Calculate and Verify Required Timeslots
+
+participant "System\n<<singleton>>" as System
+participant "ScheduleCatalog\n<<singleton>>" as ScheduleCatalog
+participant "S:Schedule" as Schedule
+participant "T:TimeSlot" as TimeSlot
+
+note right of System
+All System interactions are triggered by some other method
+Abstracted methods:
+- Composite PK construction for TimeSlot
+Validation process:
+1. Calculate required slots from time range
+2. Verify all slots are available
+3. Return list of valid slot IDs
+All validations done before any
+reservations are attempted
+end note
+
+autonumber
+
+System -> System: validateTimeSlots(start_time, end_time, schedule_id)
+System -> System: calculate_required_timeslots(start_time, end_time)
+
+System -> ScheduleCatalog: getInstance()
+System -> ScheduleCatalog: getSchedule(schedule_id)
+ScheduleCatalog --> System: return S:Schedule
+
+loop#lightblue #lightblue verify availability for each slot
+    System -> Schedule: getTimeSlot(schedule_id, slot.start_time)
+    Schedule --> System: return T:TimeSlot
+    System -> TimeSlot: isAvailable()
+    TimeSlot --> System: return availability
+    
+    alt#mistyrose #mistyrose !available
+        System --> System: return error "Timeslot unavailable"
+        break
+    end
+end
+
+alt#palegreen #palegreen all slots available
+    System --> System: return List<TimeSlotId>
+else #mistyrose
+    System --> System: return error
+end
+end
+@enduml
+_____________________
+
+@startuml
+title Generate ID - Simple UUID or Composite Key
+
+participant "System\n<<singleton>>" as System
+
+note right of System
+ID Generation Rules:
+1. If no args provided, generate UUID
+2. If args provided, create composite key
+  by combining args with underscores
+Example composite keys:
+- schedule_1_slot_2
+- offering_123_branch_456
+
+Note: Argument validation is abstracted
+end note
+
+autonumber
+
+alt#LightBlue #LightBlue args == null
+   System -> System: generate_id()
+   System -> System: generateUUID()
+   note right
+       Uses standard UUID v4
+       generation
+   end note
+   System --> System: return UUID
+else #LightGreen args provided
+   System -> System: generate_id(*args)
+   System -> System: formatArgs(args)
+   note right
+       1. Convert each arg to string
+       2. Remove special characters
+       3. Convert to lowercase
+   end note
+   
+   System -> System: combineWithUnderscores(formatted_args)
+   note right
+       Join all formatted arguments
+       with underscore separator
+   end note
+   
+   System --> System: return composite_key
+end
+
+@enduml

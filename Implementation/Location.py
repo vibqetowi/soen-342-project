@@ -1,8 +1,35 @@
+import uuid
+import psycopg2
+from psycopg2.extras import DictCursor
+import json
+from pathlib import Path
+import logging
+from datetime import datetime
 from singleton_decorator import singleton
 from sqlalchemy.orm import Session
 from Database import SessionLocal
 from utils import generate_id
 from Models import Province, City, Branch
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+@singleton
+class DatabaseConnection:
+    def __init__(self):
+        self.conn_params = self._load_connection_params()
+    
+    def _load_connection_params(self):
+        secrets_path = Path(__file__).parent / '.secrets'
+        with open(secrets_path, 'r') as f:
+            return json.load(f)
+    
+    def get_connection(self):
+        return psycopg2.connect(**self.conn_params)
 
 @singleton
 class LocationCatalog:
@@ -17,11 +44,11 @@ class LocationCatalog:
         self.session.commit()
         return province
 
-    def get_province(self, province_id):
+    def get_province(self, location_id: str) -> 'Province':
         """Retrieve a province by its ID."""
         return self.session.query(Province).filter_by(location_id=province_id).first()
 
-    def get_province_by_name(self, name):
+    def get_province_by_name(self, name: str) -> 'Province':
         """Retrieve a province by its name."""
         return self.session.query(Province).filter_by(name=name).first()
 
