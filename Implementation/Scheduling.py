@@ -32,7 +32,6 @@ class ScheduleCatalog:
         if not owner:
             raise ValueError(f"The specified {owner_type} does not exist in the database.")
 
-        # Create and commit the schedule
         schedule = Schedule(
             schedule_id=generate_id(),
             schedule_owner_id=owner_id,
@@ -65,10 +64,10 @@ class ScheduleCatalog:
                 end_time=end_time,
                 is_reserved=False
             )
-            self.session.add(time_slot)  # Add time slot to session
+            self.session.add(time_slot) 
             current_time = end_time
         
-        self.session.commit()  # Commit all new time slots to the database
+        self.session.commit() 
 
 
 
@@ -95,8 +94,8 @@ class ScheduleCatalog:
                 end_time=end_time,
                 is_reserved=False
             )
-            self.session.add(time_slot)  # Add time slot to session
+            self.session.add(time_slot) 
             current_time = end_time
         
-        self.session.commit()  # Commit all new time slots to the database
+        self.session.commit()  
 

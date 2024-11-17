@@ -1,8 +1,7 @@
 from utils import generate_id
 from singleton_decorator import singleton
 from Bookings import Booking
-from sqlalchemy.orm import Session
-from Database import SessionLocal 
+from sqlalchemy.orm import Session 
 from Models import Client, Instructor, Administrator
 
 @singleton

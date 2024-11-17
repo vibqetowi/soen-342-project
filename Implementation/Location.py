@@ -1,5 +1,3 @@
-# Location.py
-
 from singleton_decorator import singleton
 from sqlalchemy.orm import Session
 from Database import SessionLocal
@@ -54,16 +52,14 @@ class LocationCatalog:
             raise ValueError("City not found.")
 
         branch_id = generate_id()
-        # Create and add the branch first without setting schedule_id
         branch = Branch(location_id=branch_id, name=name, parent_location_id=city_id)
         self.session.add(branch)
-        self.session.commit()  # Commit to ensure the branch exists in the database
+        self.session.commit() 
 
-        # Now create the schedule and associate it with the branch
         schedule = schedule_catalog.create_schedule(branch_id, "branch")
-        branch.schedule_id = schedule.schedule_id  # Update branch with the new schedule_id
+        branch.schedule_id = schedule.schedule_id 
 
-        self.session.commit()  # Commit the update to save the schedule_id in the branch record
+        self.session.commit() 
         return branch
 
     def get_branch(self, branch_id):

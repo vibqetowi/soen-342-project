@@ -1,10 +1,7 @@
 import sys
 from System import System, generate_id
-from Users import UserCatalog
-from Location import LocationCatalog
-from Scheduling import ScheduleCatalog
-from Bookings import BookingCatalog
 from Models import Client, Administrator, Instructor, Booking
+from OCL_testing import OCLTests
 
 def display_menu():
     print("\n--- Main Menu ---")
@@ -55,7 +52,7 @@ def add_instructor(user_catalog):
     instructor = Instructor(
         user_id=generate_id(),
         email=email,
-        hashed_password=password,  # You should hash this properly in production
+        hashed_password=password,
         name=name,
         specialization=specialization,
         phone=phone,
@@ -92,46 +89,18 @@ def create_booking(booking_catalog, user_catalog):
     booking_catalog.add_booking(booking)
     print("Booking created successfully.")
 
-def ocl_test_mode(user_catalog):
-    print("\n--- OCL Test Mode ---")
-    print("1. Test creating underage client")
-    print("2. Test overbooking an offering")
-    # Add other OCL tests here
-
-    choice = input("Select a test case to run: ")
-    
-    if choice == '1':
-        test_underage_client(user_catalog)
-    elif choice == '2':
-        test_overbooking()
-
-def test_underage_client(user_catalog):
-    print("\n--- Testing Underage Client ---")
-    underage_client = Client(
-        user_id=generate_id(),
-        email="underage@example.com",
-        hashed_password="pass123",
-        name="2 User",
-        age=12  # Example underage
-    )
-    try:
-        user_catalog.add_user(underage_client)
-        print("Underage client added successfully.")
-    except ValueError as e:
-        print("Failed to add underage client:", e)
-
-def test_overbooking():
-    # Placeholder for overbooking test
-    print("\n--- Testing Overbooking ---")
-    print("This feature is under development.")
+def ocl_test_mode():
+    """Runs the OCL test menu for testing constraints."""
+    OCLTests.ocl_test_menu()
 
 def main():
-    # Initialize system and catalogs
     system = System()
     user_catalog = system.user_catalog
     location_catalog = system.location_catalog
     schedule_catalog = system.schedule_catalog
     booking_catalog = system.booking_catalog
+
+    session = system.create_session()
 
     while True:
         display_menu()
@@ -148,7 +117,7 @@ def main():
         elif choice == '5':
             create_booking(booking_catalog, user_catalog)
         elif choice == '6':
-            ocl_test_mode(user_catalog)
+            ocl_test_mode(session)
         elif choice == '0':
             print("Exiting program.")
             sys.exit()

@@ -21,10 +21,8 @@ def check_password(provided_password: str, stored_hashed_password: bytes) -> boo
 @singleton
 class System:
     def __init__(self):
-        # Set up a session for database transactions
         self.session = SessionLocal()
 
-        # Initialize all catalog instances with the session
         self.user_catalog = UserCatalog(self.session)
         self.offering_catalog = OfferingCatalog(self.session)
         self.booking_catalog = BookingCatalog(self.session)
@@ -102,14 +100,15 @@ class System:
             print(f"Error registering administrator: {e}")
             return None
 
+
+#To prevent circular imports, Administrator was added to the System.py as it relies heavily on System methods
 class Administrator:
     def __init__(self, admin_id, email, password):
         self.user_id = admin_id
         self.admin_id = admin_id
         self.email = email
-        self.password = password  # Should be stored as a hashed password
+        self.password = password  
 
-    # Administrator methods
 
     def create_offering(self, lesson_type, mode, capacity):
         """Create a new offering."""
