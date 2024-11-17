@@ -96,9 +96,7 @@ The UML Diagrams are written in PlantUML, both code and generated images are pre
 
 ## Relational Model
 
-Below is a relational model built with DBDiagram to provide persistence to the application. Github does not support embedding so please use the URL.
-
-<iframe width="1920" height="1080" src='https://dbdiagram.io/e/671bc56d97a66db9a34ae6a3/6733d1c6e9daa85aca3a306c'> </iframe>
+Below is a relational model built with DBDiagram to provide persistence to the application. 
 
 [View Interactive Database Schema](https://dbdiagram.io/e/671bc56d97a66db9a34ae6a3/6733d1c6e9daa85aca3a306c)
 
