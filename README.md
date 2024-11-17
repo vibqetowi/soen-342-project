@@ -9,6 +9,9 @@
 
 Gymmmy offers it's users a flexible and practical to book fitness classes.
 
+## Demo video:
+Please consult DemoSOEN342.webm for the video demo of the project.
+
 ## Running:
 
 ```
