@@ -1,0 +1,100 @@
+@startuml
+title Class Diagram for Gymmy
+
+class Province {
+    +location_id: char(36) <<PK>>
+    +name: varchar
+}
+
+class City {
+    +location_id: char(36) <<PK>>
+    +name: varchar
+    +parent_location_id: char(36) <<FK>>
+}
+
+class Branch {
+    +location_id: char(36) <<PK>>
+    +name: varchar
+    +schedule_id: char(36) <<FK>>
+    +parent_location_id: char(36) <<FK>>
+}
+
+class Administrator {
+    +user_id: char(36) <<PK>>
+    +email: varchar
+    +hashed_password: varchar
+    +name: varchar
+}
+
+class Instructor {
+    +user_id: char(36) <<PK>>
+    +email: varchar
+    +hashed_password: varchar
+    +name: varchar
+    +phone: varchar
+    +specialization: varchar
+    +schedule_id: char(36) <<FK>>
+}
+
+class Client {
+    +user_id: char(36) <<PK>>
+    +email: varchar
+    +hashed_password: varchar
+    +name: varchar
+    +schedule_id: char(36) <<FK>>
+    +age: integer
+    +guardian_id: char(36) <<FK>>
+}
+
+class Schedule {
+    +schedule_id: char(36) <<PK>>
+    +table_name: varchar
+    +record_id: char(36)
+}
+
+class TimeSlot {
+    +schedule_id: char(36) <<FK>>
+    +start_time: timestamp <<PK>>
+    +end_time: timestamp
+    +reserved_by_public_offering_id: char(36) <<FK>>
+    +is_reserved: boolean
+}
+
+class Offering {
+    +offering_id: char(36) <<PK>>
+    +lesson_type: varchar
+    +mode: varchar
+    +capacity: integer
+    +duration: integer
+}
+
+class PublicOffering {
+    +offering_id: char(36) <<FK>>
+    +instructor_id: char(36) <<FK>>
+    +schedule_id: char(36) <<FK>>
+    +lesson_type: varchar
+    +mode: varchar
+    +capacity: integer
+}
+
+class Booking {
+    +booked_by_client_id: char(36) <<FK>>
+    +public_offering_id: char(36) <<FK>>
+    +booked_for_client_id: char(36) <<FK>>
+}
+
+' Relationships
+Province "1" --> "0..*" City
+City "1" --> "0..*" Branch
+Branch "1" --> "1" Schedule
+TimeSlot "1" --> "1" Schedule
+
+Instructor "1" --> "0..*" PublicOffering : creates >
+PublicOffering "1" --> "1" Offering : derived from
+PublicOffering "1" --> "1" Schedule : uses >
+PublicOffering "0..*" --> "1" Booking : reserved by >
+
+Booking "1" --> "1" Client : booked by >
+Client "1" --> "0..1" Client : guardian
+Client "1" --> "1" Schedule : has >
+@enduml

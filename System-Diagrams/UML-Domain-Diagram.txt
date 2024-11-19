@@ -1,0 +1,116 @@
+@startuml
+!define Table class
+title UML Domain Diagram for Gymmy
+
+' Locations
+package "Location Hierarchy" {
+    Table provinces {
+        + location_id : char(36) <<PK>>
+        + name : varchar
+    }
+    
+    Table cities {
+        + location_id : char(36) <<PK>>
+        + name : varchar
+        + parent_location_id : char(36) <<FK>>
+    }
+    
+    Table branches {
+        + location_id : char(36) <<PK>>
+        + name : varchar
+        + schedule_id : char(36) <<FK>>
+        + parent_location_id : char(36) <<FK>>
+    }
+}
+
+' Users
+package "Users" {
+    Table administrators {
+        + user_id : char(36) <<PK>>
+        + email : varchar
+        + hashed_password : varchar
+        + name : varchar
+    }
+    
+    Table instructors {
+        + user_id : char(36) <<PK>>
+        + email : varchar
+        + hashed_password : varchar
+        + name : varchar
+        + phone : varchar
+        + specialization : varchar
+        + schedule_id : char(36) <<FK>>
+    }
+    
+    Table clients {
+        + user_id : char(36) <<PK>>
+        + email : varchar
+        + hashed_password : varchar
+        + name : varchar
+        + schedule_id : char(36) <<FK>>
+        + age : integer
+        + guardian_id : char(36) <<FK>>
+    }
+}
+
+' Scheduling and Offerings
+package "Scheduling and Offerings" {
+    Table schedules {
+        + schedule_id : char(36) <<PK>>
+        + table_name : varchar
+        + record_id : char(36)
+    }
+    
+    Table time_slots {
+        + schedule_id : char(36) <<FK>>
+        + start_time : timestamp <<PK>>
+        + end_time : timestamp
+        + reserved_by_public_offering_id : char(36) <<FK>>
+        + is_reserved : boolean
+    }
+    
+    Table offerings {
+        + offering_id : char(36) <<PK>>
+        + lesson_type : varchar
+        + mode : varchar
+        + capacity : integer
+        + duration : integer
+    }
+    
+    Table public_offerings {
+        + offering_id : char(36) <<FK>>
+        + instructor_id : char(36) <<FK>>
+        + schedule_id : char(36) <<FK>>
+        + lesson_type : varchar
+        + mode : varchar
+        + capacity : integer
+    }
+}
+
+' Bookings
+package "Bookings" {
+    Table bookings {
+        + booked_by_client_id : char(36) <<FK>>
+        + public_offering_id : char(36) <<FK>>
+        + booked_for_client_id : char(36) <<FK>>
+    }
+}
+
+
+' Relationships
+provinces "1" -- "0..*" cities : parent
+cities "1" -- "0..*" branches : parent
+branches "1" -- "1" schedules : has
+
+clients "1" -- "0..1" clients : guardian
+clients "1" -- "1" schedules : has
+instructors "1" -- "1" schedules : has
+
+time_slots "1" -- "1" schedules : belongs to
+public_offerings "0..*" -- "1" offerings : derived from
+public_offerings "0..*" -- "1" instructors : created by
+public_offerings "0..*" -- "1" schedules : uses
+
+bookings "1" -- "1" public_offerings : references
+bookings "0..*" -- "1" clients : booked by
+@enduml
